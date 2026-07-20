@@ -15,8 +15,8 @@
 |---|---|---|---|---|
 | M.1 | Mini documentation foundation | ✅ Completed | Mini-specific `AGENTS.md`, `workflow_m.md`, `TECHNICAL_SPECIFICATION.md`, and `ROADMAP.md`. | Documents agree on scope, workflow, mapping, deduplication, reuse, and exclusions; merged to `main`. |
 | M.2 | Baseline and reuse inventory | ✅ Completed | Evidence-backed inventory of reusable, adaptable, and removable components from Prisma-function in `M2_BASELINE_REUSE_INVENTORY.md`. | Each production module and test group is classified; no code behavior changes. |
-| M.3 | Mini application identity and runtime boundary | 🟡 In progress | Mini name, version, executable identity, runtime paths, logs, database, workbook path, and packaging metadata. | No remaining runtime writes target the old PrismaFunction location; migration decision documented and tested; merge into `main` remains required for completion. |
-| M.4 | Mini domain and output contracts | ⬜ Planned | Immutable date-range, source-operation, normalized-auction, workbook-row, audit, and failure contracts. | Approved 11-column mapping, units, types, ordering, reason codes, and validation rules have focused tests. |
+| M.3 | Mini application identity and runtime boundary | ✅ Completed | Mini name, version, executable identity, runtime paths, logs, database, workbook path, packaging metadata, and documented no-automatic-migration decision. | Merged to `main`; focused identity, runtime-path, logging, package, and installer tests pass. |
+| M.4 | Mini domain and output contracts | ✅ Completed | Immutable date-range, downloaded-source request, normalized-auction, 11-column output-row, accumulated-history, stable duplicate-key, validation-failure, and processing-result contracts in `mini_domain.py`. | Approved mapping, units, types, ordering, reason codes, normalization, failure rules, and duplicate behavior have focused tests. |
 | M.5 | Stable deduplication and cumulative storage | ⬜ Planned | Mini-specific transactional SQLite storage and operation audit. | Exact retry and overlapping ranges are idempotent; conflicts fail closed; existing history survives restart. |
 | M.6 | Atomic cumulative Excel publication | ⬜ Planned | Deterministic `Auctions` worksheet generated from authoritative storage. | Existing rows are preserved, new unique rows appear once, types/widths/order are tested, and failed publication preserves the last valid workbook. |
 | M.7 | Minimal Mini UI foundation | ⬜ Planned | Focused PySide6 window without monitoring dashboard behavior. | Start/end date controls, truthful state model, Start/Cancel/Open Result actions, and responsive worker signaling are tested. |
@@ -30,36 +30,29 @@
 | M.15 | Real PRISMA and clean-Windows validation | ⬜ Planned | Recorded end-to-end validation on a standard non-administrator Windows computer. | Background session, download, data-bearing transform, Excel output, retry, overlap, restart, shutdown, installer, and uninstaller checks pass. |
 | M.16 | Release readiness | ⬜ Planned | Versioned release archive, checksum, release notes, and final checklist. | Automated and required manual checks are recorded as passed; publication requires explicit approval. |
 
-## Current increment
+## Completed increment
 
-### M.3 — Mini application identity and runtime boundary
+### M.4 — Mini domain and output contracts
 
-Scope:
+M.4 adds persistence-independent immutable contracts for the inclusive user
+date range, downloaded source identity, normalized auction, authoritative output
+row, accumulated history, validation failures, and operation results. It fixes
+the approved `Auctions` worksheet's 11 columns and order, exact supported enums,
+Decimal units, timezone-naive minute-precision PRISMA timestamps, UTC audit
+timestamps, and fail-closed duplicate comparison.
 
-- define `PrismaFunctionMini` / `Prisma Function Mini` application, executable,
-  package, version-resource, and installer identities;
-- place every Mini runtime write below `%LOCALAPPDATA%\PrismaFunctionMini`;
-- define Mini database, workbook, state, log, and temporary-download paths;
-- keep `%LOCALAPPDATA%\PrismaFunction` read-only with no automatic migration;
-- preserve inherited monitoring functionality until M.13;
-- add focused runtime and packaging identity regression coverage.
-
-The implementation and migration decision are documented in
-`M3_IDENTITY_AND_RUNTIME_BOUNDARY.md`. M.3 remains in progress until its changes
-are merged into `main`.
+The duplicate key is exact PRISMA Auction ID, side-specific Network Point ID,
+normalized Capacity Type, Flow Start, and Flow End. Display names are never
+identity fallbacks. Identical records are duplicates; different payloads sharing
+one key are conflicts.
 
 ## Next recommended increment
 
-After M.3 is reviewed and merged into `main`, execute
-**M.4 — Mini domain and output contracts** next.
-
-M.4 must define and test:
-
-- immutable date-range and source-operation contracts;
-- normalized-auction, workbook-row, audit, and failure contracts;
-- the approved 11-column mapping, types, units, ordering, and reason codes.
-
-Do not begin M.4 before M.3 is merged. Monitoring removal remains M.13.
+After M.4 is reviewed and merged into `main`, execute
+**M.5 — Stable deduplication and cumulative storage** next. M.5 is limited to
+Mini-specific transactional SQLite storage and operation audit using the M.4
+contracts. Atomic Excel publication remains M.6, and monitoring removal remains
+M.13.
 
 ## Maintenance rules
 
