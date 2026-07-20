@@ -36,12 +36,14 @@ The worksheet is named `Auctions` and uses this exact column order:
 
 ## Implementation status
 
-Roadmap increments M.1 through M.4 are implemented. M.4 defines immutable Mini
-date-range, downloaded-source, normalized-auction, output-row, accumulated
-history, duplicate-key, validation-failure, and processing-result contracts.
-Persistence of those contracts and transactional cumulative storage belong to
-M.5; browser automation, automatic download, workbook publication, the Mini UI,
-packaging, and real Windows/PRISMA validation remain later increments.
+Roadmap increments M.1 through M.5 are implemented. M.5 adds Mini-specific
+transactional SQLite storage at the approved runtime database path. It preserves
+cumulative auction history across restarts, enforces the exact five-field M.4
+duplicate key, treats identical retries and overlaps idempotently, rejects
+same-key payload conflicts without partial auction writes, and records operation
+and validation-failure audit details. Atomic Excel publication is M.6; browser
+automation, automatic download, the Mini UI, packaging, and real
+Windows/PRISMA validation remain later increments.
 
 ## Development and tests
 
