@@ -1,0 +1,6 @@
+exit_market,entry_market,network_point_name,tso_name_exit,tso_name_entry
+BG,HTP,Kulata (BG)/Sidirokastron (GR),Bulgartransgaz EAD,DESFA S.A.
+BG,RS,Kireevo (BG) / Zaychar (RS),Bulgartransgaz EAD,Gastrans d.o.o. Novi Sad
+CEGH,MGP,Mosonmagyarovar (AT) / Mosonmagyaróvár (HU),GAS CONNECT AUSTRIA GmbH,FGSZ Zrt.
+CEGH,PSV,Arnoldstein Exit,Trans Austria Gasleitung GmbH,SNAM RETE GAS S.P.A.
+CEGH,SK,Baumgarten WAG AT->SK,Trans Austria Gasleitung GmbH,"eustream, a.s."
