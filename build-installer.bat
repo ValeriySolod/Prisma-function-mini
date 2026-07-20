@@ -2,7 +2,7 @@
 setlocal
 cd /d "%~dp0"
 
-if not exist "dist\PrismaFunction\PrismaFunction.exe" (
+if not exist "dist\PrismaFunctionMini\PrismaFunctionMini.exe" (
     echo ERROR: Build the validated PyInstaller onedir package first.
     exit /b 1
 )
@@ -21,7 +21,7 @@ if not exist "%ISCC%" (
 set "SIGN_ARG="
 if defined INNO_SIGNTOOL_NAME set "SIGN_ARG=/DSignToolName=%INNO_SIGNTOOL_NAME%"
 
-"%ISCC%" %SIGN_ARG% "PrismaFunction.iss"
+"%ISCC%" %SIGN_ARG% "PrismaFunctionMini.iss"
 if errorlevel 1 exit /b %errorlevel%
 
 endlocal

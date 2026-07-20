@@ -46,4 +46,7 @@ jobs:
         run: python -m compileall -q app.py auction_csv.py browser.py monitoring.py processor.py runtime_logging.py scheduler.py storage.py tests
 
       - name: Validate PyInstaller package
-        run: python -m PyInstaller --clean --noconfirm PrismaFunction.spec
+        run: python -m PyInstaller --clean --noconfirm PrismaFunctionMini.spec
+
+      - name: Validate package structure
+        run: python validate_package.py

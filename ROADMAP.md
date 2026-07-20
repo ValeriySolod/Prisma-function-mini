@@ -15,7 +15,7 @@
 |---|---|---|---|---|
 | M.1 | Mini documentation foundation | ✅ Completed | Mini-specific `AGENTS.md`, `workflow_m.md`, `TECHNICAL_SPECIFICATION.md`, and `ROADMAP.md`. | Documents agree on scope, workflow, mapping, deduplication, reuse, and exclusions; merged to `main`. |
 | M.2 | Baseline and reuse inventory | ✅ Completed | Evidence-backed inventory of reusable, adaptable, and removable components from Prisma-function in `M2_BASELINE_REUSE_INVENTORY.md`. | Each production module and test group is classified; no code behavior changes. |
-| M.3 | Mini application identity and runtime boundary | ⬜ Planned | Mini name, version, executable identity, runtime paths, logs, database, workbook path, and packaging metadata. | No remaining runtime writes target the old PrismaFunction location; migration decision documented and tested. |
+| M.3 | Mini application identity and runtime boundary | 🟡 In progress | Mini name, version, executable identity, runtime paths, logs, database, workbook path, and packaging metadata. | No remaining runtime writes target the old PrismaFunction location; migration decision documented and tested; merge into `main` remains required for completion. |
 | M.4 | Mini domain and output contracts | ⬜ Planned | Immutable date-range, source-operation, normalized-auction, workbook-row, audit, and failure contracts. | Approved 11-column mapping, units, types, ordering, reason codes, and validation rules have focused tests. |
 | M.5 | Stable deduplication and cumulative storage | ⬜ Planned | Mini-specific transactional SQLite storage and operation audit. | Exact retry and overlapping ranges are idempotent; conflicts fail closed; existing history survives restart. |
 | M.6 | Atomic cumulative Excel publication | ⬜ Planned | Deterministic `Auctions` worksheet generated from authoritative storage. | Existing rows are preserved, new unique rows appear once, types/widths/order are tested, and failed publication preserves the last valid workbook. |
@@ -32,31 +32,34 @@
 
 ## Current increment
 
-### M.2 — Baseline and reuse inventory
+### M.3 — Mini application identity and runtime boundary
 
 Scope:
 
-- classify every inherited production module and test group;
-- identify authoritative tests and stale documentation/package identity;
-- inventory documentation, packaging, source evidence, and runtime-data boundaries;
-- record database, migration, browser, download, workbook, and monitoring-removal risks;
-- make no production code or architecture changes.
+- define `PrismaFunctionMini` / `Prisma Function Mini` application, executable,
+  package, version-resource, and installer identities;
+- place every Mini runtime write below `%LOCALAPPDATA%\PrismaFunctionMini`;
+- define Mini database, workbook, state, log, and temporary-download paths;
+- keep `%LOCALAPPDATA%\PrismaFunction` read-only with no automatic migration;
+- preserve inherited monitoring functionality until M.13;
+- add focused runtime and packaging identity regression coverage.
 
-The completed evidence-backed deliverable is
-`M2_BASELINE_REUSE_INVENTORY.md`. No production code changes belong to M.2.
+The implementation and migration decision are documented in
+`M3_IDENTITY_AND_RUNTIME_BOUNDARY.md`. M.3 remains in progress until its changes
+are merged into `main`.
 
 ## Next recommended increment
 
-Execute **M.3 — Mini application identity and runtime boundary** next.
+After M.3 is reviewed and merged into `main`, execute
+**M.4 — Mini domain and output contracts** next.
 
-M.3 must use the M.2 inventory to define and test:
+M.4 must define and test:
 
-- Mini application, display, executable, version-resource, package, and installer identity;
-- `%LOCALAPPDATA%\PrismaFunctionMini` runtime paths, database, workbook, state, and log names;
-- an explicit, non-destructive historical-data migration decision;
-- regression coverage proving no Mini runtime writes target the old PrismaFunction root.
+- immutable date-range and source-operation contracts;
+- normalized-auction, workbook-row, audit, and failure contracts;
+- the approved 11-column mapping, types, units, ordering, and reason codes.
 
-M.3 must not remove monitoring functionality; removal remains M.13.
+Do not begin M.4 before M.3 is merged. Monitoring removal remains M.13.
 
 ## Maintenance rules
 

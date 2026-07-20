@@ -7,7 +7,7 @@ if errorlevel 1 exit /b %errorlevel%
 if exist "dist" rmdir /s /q "dist"
 if errorlevel 1 exit /b %errorlevel%
 
-python -m PyInstaller --clean --noconfirm PrismaFunction.spec
+python -m PyInstaller --clean --noconfirm PrismaFunctionMini.spec
 if errorlevel 1 exit /b %errorlevel%
 
-echo Build complete: dist\PrismaFunction\PrismaFunction.exe
+echo Build complete: dist\PrismaFunctionMini\PrismaFunctionMini.exe

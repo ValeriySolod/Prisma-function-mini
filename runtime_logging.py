@@ -9,7 +9,7 @@ from pathlib import Path
 from runtime_paths import LOG_FILENAME, runtime_paths
 
 
-LOGGER_NAME = "prisma_function"
+LOGGER_NAME = "prisma_function_mini"
 
 
 def runtime_mode() -> str:

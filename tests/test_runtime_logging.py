@@ -15,7 +15,8 @@ def reset_logger():
 
 def test_log_initialization_in_source_mode(tmp_path, monkeypatch):
     reset_logger()
-    target = tmp_path / "Local App Data" / "PrismaFunction" / "logs" / "prisma-function.log"
+    assert runtime_logging.LOGGER_NAME == "prisma_function_mini"
+    target = tmp_path / "Local App Data" / "PrismaFunctionMini" / "logs" / "prisma-function-mini.log"
     monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "Local App Data"))
     monkeypatch.delattr(runtime_logging.sys, "frozen", raising=False)
     monkeypatch.delattr(runtime_logging.sys, "_MEIPASS", raising=False)
@@ -35,7 +36,7 @@ def test_log_initialization_in_source_mode(tmp_path, monkeypatch):
 
 def test_log_initialization_in_simulated_packaged_mode(tmp_path, monkeypatch):
     reset_logger()
-    executable = tmp_path / "Program Files" / "Prisma Function" / "PrismaFunction.exe"
+    executable = tmp_path / "Program Files" / "Prisma Function Mini" / "PrismaFunctionMini.exe"
     bundle = executable.parent / "_internal"
     monkeypatch.setattr(runtime_logging.sys, "frozen", True, raising=False)
     monkeypatch.setattr(runtime_logging.sys, "executable", str(executable))
@@ -55,7 +56,7 @@ def test_log_initialization_in_simulated_packaged_mode(tmp_path, monkeypatch):
 
 def test_log_initialization_does_not_fall_back_outside_user_data(tmp_path, monkeypatch):
     reset_logger()
-    preferred = tmp_path / "blocked" / "prisma-function.log"
+    preferred = tmp_path / "blocked" / "prisma-function-mini.log"
     real_create = runtime_logging._create_handler
     monkeypatch.setattr(runtime_logging, "preferred_log_path", lambda: preferred)
     monkeypatch.setattr(runtime_logging, "fallback_log_path", lambda: preferred)
@@ -89,7 +90,7 @@ def test_bootstrap_log_remains_active_and_legacy_current_log_becomes_conflict(tm
     reset_logger()
     monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "local"))
     paths = runtime_paths.runtime_paths()
-    legacy_logs = tmp_path / "temp" / "PrismaFunction" / "logs"
+    legacy_logs = tmp_path / "temp" / "PrismaFunctionMini" / "logs"
     legacy_logs.mkdir(parents=True)
     legacy = legacy_logs / runtime_paths.LOG_FILENAME
     legacy.write_text("legacy current log", encoding="utf-8")
@@ -104,7 +105,7 @@ def test_bootstrap_log_remains_active_and_legacy_current_log_becomes_conflict(tm
 
     assert path == paths.log.resolve()
     assert "Application startup" in paths.log.read_text(encoding="utf-8")
-    conflict = next(paths.log.parent.glob("prisma-function.log.legacy-*"))
+    conflict = next(paths.log.parent.glob("prisma-function-mini.log.legacy-*"))
     assert conflict.read_text(encoding="utf-8") == "legacy current log"
     assert legacy.read_text(encoding="utf-8") == "legacy current log"
     reset_logger()
