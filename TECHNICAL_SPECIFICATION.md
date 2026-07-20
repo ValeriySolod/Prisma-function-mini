@@ -224,6 +224,26 @@ Reuse must be selective. Removing excluded functionality must not weaken shared 
 - Shutdown must wait for or safely cancel owned non-daemon work.
 - The packaged application must run without a separately installed Python runtime.
 
+### 6.1 Mini identity and runtime boundary
+
+The authoritative internal/package identity is `PrismaFunctionMini`, the
+display/product name is `Prisma Function Mini`, the executable is
+`PrismaFunctionMini.exe`, and the initial Mini version is `0.1.0`.
+
+The writable runtime layout is:
+
+- database: `%LOCALAPPDATA%\PrismaFunctionMini\data\prisma_function_mini.db`;
+- workbook: `%LOCALAPPDATA%\PrismaFunctionMini\data\result\prisma_function_mini.xlsx`;
+- state: `%LOCALAPPDATA%\PrismaFunctionMini\state\prisma_function_mini_state.json`;
+- log: `%LOCALAPPDATA%\PrismaFunctionMini\logs\prisma-function-mini.log`;
+- temporary downloads: `%LOCALAPPDATA%\PrismaFunctionMini\temporary-downloads`.
+
+The inherited `%LOCALAPPDATA%\PrismaFunction` root is read-only historical user
+data. Mini performs no automatic scan, copy, move, overwrite, deletion,
+rebuild, or reinterpretation of that root. Any future opt-in copy/transform
+requires the approved M.5/M.6 contracts and a separately tested migration.
+`M3_IDENTITY_AND_RUNTIME_BOUNDARY.md` records the complete decision.
+
 ## 7. Acceptance baseline
 
 The product baseline is accepted when a clean Windows validation demonstrates:

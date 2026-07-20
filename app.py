@@ -50,7 +50,7 @@ from runtime_logging import (
     initialize_runtime_logging,
     safe_log,
 )
-from runtime_paths import RuntimePathError, RuntimePaths, migrate_legacy_runtime_data, runtime_paths
+from runtime_paths import RuntimePathError, RuntimePaths, prepare_runtime_directories, runtime_paths
 from scheduler import MonitoringScheduler
 from ui_components import (
     APP_STYLE,
@@ -143,7 +143,7 @@ class PrismaMonitorApp(QMainWindow):
         side = QVBoxLayout(sidebar)
         side.setContentsMargins(22, 24, 22, 22)
         side.setSpacing(9)
-        brand = QLabel("PrismaFunction")
+        brand = QLabel(APP_DISPLAY_NAME)
         brand.setObjectName("brand")
         subtitle = QLabel("PRISMA auction monitoring")
         subtitle.setObjectName("subtitle")
@@ -151,7 +151,7 @@ class PrismaMonitorApp(QMainWindow):
         side.addWidget(subtitle)
         side.addSpacing(20)
         self.open_button = self._button("Open Browser", self.open_prisma, primary=True,
-            tooltip="Open a PrismaFunction-managed PRISMA browser session")
+            tooltip="Open a Prisma Function Mini-managed PRISMA browser session")
         self.stop_browser_button = self._button("Stop Browser", self.stop_work)
         self._side_group(side, "BROWSER", self.open_button, self.stop_browser_button)
         self.load_csv_button = self._button("Load Monitoring CSV", self.select_csv, primary=True)
@@ -707,8 +707,8 @@ class PrismaMonitorApp(QMainWindow):
         if not self._shutdown_started and self._monitoring_thread is not None:
             answer = QMessageBox.question(
                 self,
-                "Close PrismaFunction",
-                "Monitoring is active. Stop monitoring and close PrismaFunction?",
+                f"Close {APP_DISPLAY_NAME}",
+                f"Monitoring is active. Stop monitoring and close {APP_DISPLAY_NAME}?",
                 QMessageBox.Yes | QMessageBox.No,
                 QMessageBox.No,
             )
@@ -751,7 +751,7 @@ def main() -> int:
                 "The required user-data log file could not be created. "
                 "Check LOCALAPPDATA and folder permissions, then retry."
             )
-        migrate_legacy_runtime_data(paths=paths, logger=logger)
+        prepare_runtime_directories(paths=paths)
     except Exception as exc:
         initialization_error = str(exc)
         if any(getattr(handler, "baseFilename", None) for handler in logging.getLogger(LOGGER_NAME).handlers):
@@ -759,9 +759,9 @@ def main() -> int:
     if initialization_error is not None:
         QMessageBox.critical(
             None,
-            "PrismaFunction Data Error",
-            "PrismaFunction could not prepare its user-data directory. "
-            f"No legacy data was discarded. {initialization_error}",
+            f"{APP_DISPLAY_NAME} Data Error",
+            f"{APP_DISPLAY_NAME} could not prepare its user-data directory. "
+            f"No historical data was modified. {initialization_error}",
         )
         return 1
     window = PrismaMonitorApp(paths)

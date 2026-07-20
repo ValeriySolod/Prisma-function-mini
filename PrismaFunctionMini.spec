@@ -27,7 +27,7 @@ exe = EXE(
     analysis.scripts,
     [],
     exclude_binaries=True,
-    name="PrismaFunction",
+    name="PrismaFunctionMini",
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -38,7 +38,7 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    version="PrismaFunction.version",
+    version="PrismaFunctionMini.version",
 )
 collection = COLLECT(
     exe,
@@ -47,5 +47,5 @@ collection = COLLECT(
     strip=False,
     upx=True,
     upx_exclude=[],
-    name="PrismaFunction",
+    name="PrismaFunctionMini",
 )

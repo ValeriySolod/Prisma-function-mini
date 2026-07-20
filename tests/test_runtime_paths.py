@@ -19,11 +19,12 @@ def user_data(tmp_path, monkeypatch):
 
 def test_windows_local_app_data_resolution_and_layout(user_data):
     paths = runtime_paths.runtime_paths()
-    assert paths.root == user_data / "PrismaFunction"
-    assert paths.database == paths.root / "data" / "prisma_monitor.db"
-    assert paths.result == paths.root / "data" / "result" / "prisma_auctions.xlsx"
-    assert paths.state == paths.root / "state" / "prisma_import_state.json"
-    assert paths.log == paths.root / "logs" / "prisma-function.log"
+    assert paths.root == user_data / "PrismaFunctionMini"
+    assert paths.database == paths.root / "data" / "prisma_function_mini.db"
+    assert paths.result == paths.root / "data" / "result" / "prisma_function_mini.xlsx"
+    assert paths.state == paths.root / "state" / "prisma_function_mini_state.json"
+    assert paths.log == paths.root / "logs" / "prisma-function-mini.log"
+    assert paths.temporary_downloads == paths.root / "temporary-downloads"
     assert not paths.root.exists()
 
 
@@ -42,28 +43,29 @@ def test_user_profile_is_deterministic_fallback(tmp_path, monkeypatch):
 def _legacy_tree(root: Path):
     data = root / "data"
     (data / "result").mkdir(parents=True)
-    with sqlite3.connect(data / "prisma_monitor.db") as connection:
+    with sqlite3.connect(data / runtime_paths.DATABASE_FILENAME) as connection:
         connection.execute("PRAGMA journal_mode=WAL")
         connection.execute("CREATE TABLE sample(value TEXT)")
         connection.execute("INSERT INTO sample VALUES ('preserved')")
-    (data / "result" / "prisma_auctions.xlsx").write_bytes(b"workbook")
-    (data / "prisma_import_state.json").write_text('{"accepted_sources": []}', encoding="utf-8")
+    (data / "result" / runtime_paths.RESULT_FILENAME).write_bytes(b"workbook")
+    (data / runtime_paths.STATE_FILENAME).write_text('{"accepted_sources": []}', encoding="utf-8")
 
 
 def test_migrates_all_confirmed_categories_and_is_idempotent(tmp_path, user_data):
     legacy = tmp_path / "installed"
     temp = tmp_path / "temp"
     _legacy_tree(legacy)
-    old_logs = temp / "PrismaFunction" / "logs"
+    old_logs = temp / "PrismaFunctionMini" / "logs"
     old_logs.mkdir(parents=True)
-    (old_logs / "prisma-function.log").write_text("legacy log", encoding="utf-8")
-    (old_logs / "prisma-function.log.1").write_text("rotated", encoding="utf-8")
+    (old_logs / runtime_paths.LOG_FILENAME).write_text("legacy log", encoding="utf-8")
+    (old_logs / f"{runtime_paths.LOG_FILENAME}.1").write_text("rotated", encoding="utf-8")
 
     first = runtime_paths.migrate_legacy_runtime_data(app_directory=legacy, temp_directory=temp)
     paths = runtime_paths.runtime_paths()
     assert {name for name, _ in first} == {
-        "prisma_monitor.db", "prisma_auctions.xlsx", "prisma_import_state.json",
-        "prisma-function.log", "prisma-function.log.1",
+        runtime_paths.DATABASE_FILENAME, runtime_paths.RESULT_FILENAME,
+        runtime_paths.STATE_FILENAME, runtime_paths.LOG_FILENAME,
+        f"{runtime_paths.LOG_FILENAME}.1",
     }
     with sqlite3.connect(paths.database) as connection:
         assert connection.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
@@ -71,7 +73,7 @@ def test_migrates_all_confirmed_categories_and_is_idempotent(tmp_path, user_data
     assert paths.result.read_bytes() == b"workbook"
     assert paths.state.read_text(encoding="utf-8") == '{"accepted_sources": []}'
     assert paths.log.read_text(encoding="utf-8") == "legacy log"
-    assert (paths.log.parent / "prisma-function.log.1").read_text(encoding="utf-8") == "rotated"
+    assert (paths.log.parent / f"{runtime_paths.LOG_FILENAME}.1").read_text(encoding="utf-8") == "rotated"
 
     second = runtime_paths.migrate_legacy_runtime_data(app_directory=legacy, temp_directory=temp)
     assert second and all(outcome == "identical" for _, outcome in second)
@@ -79,7 +81,7 @@ def test_migrates_all_confirmed_categories_and_is_idempotent(tmp_path, user_data
 
 def test_conflict_retains_destination_source_and_named_legacy_copy(tmp_path, user_data):
     legacy = tmp_path / "installed"
-    source = legacy / "data" / "result" / "prisma_auctions.xlsx"
+    source = legacy / "data" / "result" / runtime_paths.RESULT_FILENAME
     source.parent.mkdir(parents=True)
     source.write_bytes(b"legacy")
     destination = runtime_paths.runtime_paths().result
@@ -90,13 +92,13 @@ def test_conflict_retains_destination_source_and_named_legacy_copy(tmp_path, use
 
     assert destination.read_bytes() == b"current"
     assert source.read_bytes() == b"legacy"
-    conflict = next(destination.parent.glob("prisma_auctions.xlsx.legacy-*"))
+    conflict = next(destination.parent.glob(f"{runtime_paths.RESULT_FILENAME}.legacy-*"))
     assert conflict.read_bytes() == b"legacy"
     assert outcomes[0][1].startswith("conflict:")
 
 
 def test_failed_atomic_replace_leaves_no_destination_or_staging(tmp_path, user_data, monkeypatch):
-    source = tmp_path / "installed" / "data" / "prisma_import_state.json"
+    source = tmp_path / "installed" / "data" / runtime_paths.STATE_FILENAME
     source.parent.mkdir(parents=True)
     source.write_text("state", encoding="utf-8")
     real_replace = runtime_paths.os.replace
@@ -279,7 +281,7 @@ def test_owner_release_does_not_remove_replacement_lock(tmp_path, user_data, mon
 
 def test_live_wal_source_special_path_migrates_committed_wal_and_repeats_identically(tmp_path, user_data):
     legacy = tmp_path / "installed # 50% space"
-    database = legacy / "data" / "prisma_monitor.db"
+    database = legacy / "data" / runtime_paths.DATABASE_FILENAME
     database.parent.mkdir(parents=True)
     connection = sqlite3.connect(database)
     try:
@@ -309,7 +311,7 @@ def test_live_wal_source_special_path_migrates_committed_wal_and_repeats_identic
 
 def test_logically_identical_sqlite_with_different_wal_representation_is_identical(tmp_path, user_data):
     legacy = tmp_path / "installed"
-    source = legacy / "data" / "prisma_monitor.db"
+    source = legacy / "data" / runtime_paths.DATABASE_FILENAME
     source.parent.mkdir(parents=True)
     destination = runtime_paths.runtime_paths().database
     destination.parent.mkdir(parents=True)
@@ -328,13 +330,13 @@ def test_logically_identical_sqlite_with_different_wal_representation_is_identic
         app_directory=legacy, temp_directory=tmp_path / "none"
     )
 
-    assert outcomes == [("prisma_monitor.db", "identical")]
-    assert not list(destination.parent.glob("prisma_monitor.db.legacy-*"))
+    assert outcomes == [(runtime_paths.DATABASE_FILENAME, "identical")]
+    assert not list(destination.parent.glob(f"{runtime_paths.DATABASE_FILENAME}.legacy-*"))
 
 
 def test_conflicting_sqlite_preserves_both_databases(tmp_path, user_data):
     legacy = tmp_path / "installed"
-    source = legacy / "data" / "prisma_monitor.db"
+    source = legacy / "data" / runtime_paths.DATABASE_FILENAME
     source.parent.mkdir(parents=True)
     destination = runtime_paths.runtime_paths().database
     destination.parent.mkdir(parents=True)
@@ -347,7 +349,7 @@ def test_conflicting_sqlite_preserves_both_databases(tmp_path, user_data):
         app_directory=legacy, temp_directory=tmp_path / "none"
     )
 
-    conflict = next(destination.parent.glob("prisma_monitor.db.legacy-*"))
+    conflict = next(destination.parent.glob(f"{runtime_paths.DATABASE_FILENAME}.legacy-*"))
     with sqlite3.connect(destination) as connection:
         assert connection.execute("SELECT value FROM sample").fetchone()[0] == "current"
     with sqlite3.connect(conflict) as connection:
@@ -366,5 +368,30 @@ def test_sqlite_readonly_uri_percent_encodes_query_and_fragment_characters(tmp_p
 def test_source_and_frozen_application_locations_do_not_affect_defaults(tmp_path, user_data, monkeypatch):
     source_paths = runtime_paths.runtime_paths()
     monkeypatch.setattr(runtime_paths.sys, "frozen", True, raising=False)
-    monkeypatch.setattr(runtime_paths.sys, "executable", str(tmp_path / "Program Files" / "PrismaFunction.exe"))
+    monkeypatch.setattr(runtime_paths.sys, "executable", str(tmp_path / "Program Files" / "PrismaFunctionMini.exe"))
     assert runtime_paths.runtime_paths() == source_paths
+
+
+def test_prepare_runtime_directories_never_touches_historical_prismafunction_root(
+        tmp_path, user_data):
+    historical = runtime_paths.historical_runtime_root()
+    historical.mkdir(parents=True)
+    sentinel = historical / "existing-user-data.txt"
+    sentinel.write_text("preserve", encoding="utf-8")
+
+    paths = runtime_paths.prepare_runtime_directories()
+
+    assert sentinel.read_text(encoding="utf-8") == "preserve"
+    assert sorted(path.name for path in historical.iterdir()) == [sentinel.name]
+    assert paths.root == user_data / "PrismaFunctionMini"
+    assert all(
+        directory.is_dir()
+        for directory in (
+            paths.database.parent,
+            paths.result.parent,
+            paths.state.parent,
+            paths.log.parent,
+            paths.temporary_downloads,
+        )
+    )
+    assert historical not in paths.root.parents and paths.root != historical

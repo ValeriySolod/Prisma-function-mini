@@ -3,7 +3,7 @@
 ## Scope
 
 The installer packages the already validated PyInstaller `onedir` distribution from
-`dist\PrismaFunction`. It does not replace or modify the existing PyInstaller build.
+`dist\PrismaFunctionMini`. It does not replace or modify the existing PyInstaller build.
 
 The default installation is per-user and does not require administrator rights:
 
@@ -14,7 +14,7 @@ The default installation is per-user and does not require administrator rights:
 Application runtime data remains separate under:
 
 ```text
-%LOCALAPPDATA%\PrismaFunction
+%LOCALAPPDATA%\PrismaFunctionMini
 ```
 
 Uninstalling or upgrading the application must not remove that runtime-data directory.
@@ -23,7 +23,7 @@ Uninstalling or upgrading the application must not remove that runtime-data dire
 
 - Windows x64;
 - the project environment and dependencies described in `BUILDING.md`;
-- a successful validated `dist\PrismaFunction` build;
+- a successful validated `dist\PrismaFunctionMini` build;
 - Inno Setup 6 with `ISCC.exe` available in its default location, or
   `INNO_SETUP_COMPILER` set to the full compiler path.
 
@@ -40,7 +40,7 @@ build-installer.bat
 The installer is written to:
 
 ```text
-installer\PrismaFunction-Setup-1.0.0-windows-x64.exe
+installer\PrismaFunctionMini-Setup-0.1.0-windows-x64.exe
 ```
 
 The version is read from the packaged executable metadata, whose source of truth is
@@ -62,7 +62,7 @@ to the repository and must not be committed.
 
 ## Installation behavior
 
-- installs only files from the validated `dist\PrismaFunction` directory;
+- installs only files from the validated `dist\PrismaFunctionMini` directory;
 - creates a Start Menu shortcut;
 - offers an unchecked optional desktop shortcut;
 - supports paths containing spaces;
@@ -72,7 +72,7 @@ to the repository and must not be committed.
 ## Uninstall and upgrade behavior
 
 The generated uninstaller removes installed application binaries and shortcuts. It
-must preserve `%LOCALAPPDATA%\PrismaFunction`, including databases, logs, generated
+must preserve `%LOCALAPPDATA%\PrismaFunctionMini`, including databases, logs, generated
 workbooks, import state, and other user-owned runtime data.
 
 The stable Inno Setup `AppId` and default directory provide an in-place upgrade path.
@@ -91,11 +91,11 @@ Perform these checks on a standard non-administrator Windows account:
 5. Confirm the Start Menu shortcut and optional desktop shortcut behavior.
 6. Launch the application and exercise browser opening, CSV import, monitoring start
    and stop, generated output, shutdown, and relaunch.
-7. Confirm writable data appears only below `%LOCALAPPDATA%\PrismaFunction`.
+7. Confirm writable data appears only below `%LOCALAPPDATA%\PrismaFunctionMini`.
 8. Install the same or a newer build over the existing installation and confirm user
    data remains intact.
 9. Uninstall from Windows Settings and confirm binaries and shortcuts are removed.
-10. Confirm `%LOCALAPPDATA%\PrismaFunction` remains intact after uninstall.
-11. Reinstall and confirm the preserved database and baseline can be reused.
+10. Confirm `%LOCALAPPDATA%\PrismaFunctionMini` remains intact after uninstall.
+11. Reinstall and confirm the preserved Mini database and baseline can be reused.
 12. For a release candidate, verify Authenticode signatures on both setup and
     uninstaller and complete `RELEASE_CHECKLIST.md`.

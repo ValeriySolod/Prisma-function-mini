@@ -7,7 +7,7 @@ from pathlib import Path
 
 
 REQUIRED_PATHS = (
-    "PrismaFunction.exe",
+    "PrismaFunctionMini.exe",
     "_internal/PySide6/Qt6Core.dll",
     "_internal/PySide6/Qt6Gui.dll",
     "_internal/PySide6/Qt6Widgets.dll",
@@ -16,15 +16,17 @@ REQUIRED_PATHS = (
     "_internal/playwright/driver/package/package.json",
 )
 FORBIDDEN_SUFFIXES = (".py", ".pyc", ".log", ".csv")
-FORBIDDEN_PARTS = {".venv", "tests", "__pycache__", ".pytest_cache"}
+FORBIDDEN_PARTS = {
+    ".venv", "tests", "__pycache__", ".pytest_cache", "temporary-downloads"
+}
 RUNTIME_OUTPUT_NAMES = {
-    "prisma_auctions.xlsx",
-    "prisma_import_state.json",
+    "prisma_function_mini.xlsx",
+    "prisma_function_mini_state.json",
 }
 SQLITE_RUNTIME_NAMES = {
-    "prisma_monitor.db",
-    "prisma_monitor.db-shm",
-    "prisma_monitor.db-wal",
+    "prisma_function_mini.db",
+    "prisma_function_mini.db-shm",
+    "prisma_function_mini.db-wal",
 }
 
 
@@ -32,9 +34,9 @@ def _is_writable_runtime_file(name: str) -> bool:
     lowered = name.lower()
     if lowered in RUNTIME_OUTPUT_NAMES or lowered in SQLITE_RUNTIME_NAMES:
         return True
-    if lowered == "prisma-function.log":
+    if lowered == "prisma-function-mini.log":
         return True
-    prefix = "prisma-function.log."
+    prefix = "prisma-function-mini.log."
     return lowered.startswith(prefix) and lowered[len(prefix):].isdigit()
 
 
@@ -64,12 +66,12 @@ def validate_distribution(distribution: Path) -> list[str]:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Validate the PrismaFunction onedir package.")
+    parser = argparse.ArgumentParser(description="Validate the PrismaFunctionMini onedir package.")
     parser.add_argument(
         "distribution",
         nargs="?",
         type=Path,
-        default=Path(__file__).resolve().parent / "dist" / "PrismaFunction",
+        default=Path(__file__).resolve().parent / "dist" / "PrismaFunctionMini",
     )
     arguments = parser.parse_args()
     errors = validate_distribution(arguments.distribution)

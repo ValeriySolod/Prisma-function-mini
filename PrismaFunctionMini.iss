@@ -1,12 +1,12 @@
-#define AppInternalName "PrismaFunction"
-#define AppDisplayName "PRISMA Monitor"
+#define AppInternalName "PrismaFunctionMini"
+#define AppDisplayName "Prisma Function Mini"
 #define AppPublisher "ValeriySolod"
-#define AppExeName "PrismaFunction.exe"
-#define AppSourceDir "dist\PrismaFunction"
+#define AppExeName "PrismaFunctionMini.exe"
+#define AppSourceDir "dist\PrismaFunctionMini"
 #define AppVersion GetFileVersion(AppSourceDir + "\" + AppExeName)
 
 [Setup]
-AppId={{9EA334E3-8B4C-40D5-9E12-17DF916CFDF7}
+AppId={{118861B7-7FAB-4B85-B88A-F557D89A6986}
 AppName={#AppDisplayName}
 AppVersion={#AppVersion}
 AppVerName={#AppDisplayName} {#AppVersion}
@@ -52,4 +52,4 @@ Filename: "{app}\{#AppExeName}"; Description: "Launch {#AppDisplayName}"; Flags:
 
 [UninstallDelete]
 ; Intentionally empty. Application runtime data lives below
-; {localappdata}\PrismaFunction and must survive uninstall/upgrade.
+; {localappdata}\PrismaFunctionMini and must survive uninstall/upgrade.

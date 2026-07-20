@@ -9,10 +9,10 @@ Set-Location -LiteralPath $Root
 $VersionMatch = Select-String -LiteralPath (Join-Path $Root "version.py") -Pattern '^__version__\s*=\s*"([0-9]+\.[0-9]+\.[0-9]+)"$'
 if (-not $VersionMatch) { throw "Could not read the release version from version.py." }
 $Version = $VersionMatch.Matches[0].Groups[1].Value
-$BuildDirectory = Join-Path $Root "dist\PrismaFunction"
-$Executable = Join-Path $BuildDirectory "PrismaFunction.exe"
+$BuildDirectory = Join-Path $Root "dist\PrismaFunctionMini"
+$Executable = Join-Path $BuildDirectory "PrismaFunctionMini.exe"
 $ReleaseDirectory = Join-Path $Root "release"
-$ArchiveName = "PrismaFunction-v$Version-windows-x64.zip"
+$ArchiveName = "PrismaFunctionMini-v$Version-windows-x64.zip"
 $ArchivePath = Join-Path $ReleaseDirectory $ArchiveName
 $ChecksumPath = "$ArchivePath.sha256"
 
@@ -42,7 +42,7 @@ try {
     try {
         foreach ($File in $Files) {
             $Relative = $File.FullName.Substring($BuildDirectory.Length + 1).Replace("\", "/")
-            $Entry = $Zip.CreateEntry("PrismaFunction/$Relative", [System.IO.Compression.CompressionLevel]::Optimal)
+            $Entry = $Zip.CreateEntry("PrismaFunctionMini/$Relative", [System.IO.Compression.CompressionLevel]::Optimal)
             $Entry.LastWriteTime = [DateTimeOffset]::new(2000, 1, 1, 0, 0, 0, [TimeSpan]::Zero)
             $Input = [System.IO.File]::OpenRead($File.FullName)
             try { $Output = $Entry.Open(); try { $Input.CopyTo($Output) } finally { $Output.Dispose() } }

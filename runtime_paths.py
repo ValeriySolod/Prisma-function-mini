@@ -15,11 +15,13 @@ from dataclasses import dataclass
 from pathlib import Path
 
 
-APP_DIRECTORY_NAME = "PrismaFunction"
-DATABASE_FILENAME = "prisma_monitor.db"
-RESULT_FILENAME = "prisma_auctions.xlsx"
-STATE_FILENAME = "prisma_import_state.json"
-LOG_FILENAME = "prisma-function.log"
+APP_DIRECTORY_NAME = "PrismaFunctionMini"
+HISTORICAL_APP_DIRECTORY_NAME = "PrismaFunction"
+DATABASE_FILENAME = "prisma_function_mini.db"
+RESULT_FILENAME = "prisma_function_mini.xlsx"
+STATE_FILENAME = "prisma_function_mini_state.json"
+LOG_FILENAME = "prisma-function-mini.log"
+TEMPORARY_DOWNLOAD_DIRECTORY_NAME = "temporary-downloads"
 LOCK_FILENAME = ".migration.lock"
 LOCK_STALE_SECONDS = 300.0
 LOCK_OWNER_FILENAME = "owner"
@@ -43,6 +45,7 @@ class RuntimePaths:
     result: Path
     state: Path
     log: Path
+    temporary_downloads: Path
 
 
 @dataclass(frozen=True)
@@ -84,7 +87,30 @@ def runtime_paths(*, environ=None) -> RuntimePaths:
         result=root / "data" / "result" / RESULT_FILENAME,
         state=root / "state" / STATE_FILENAME,
         log=root / "logs" / LOG_FILENAME,
+        temporary_downloads=root / TEMPORARY_DOWNLOAD_DIRECTORY_NAME,
     )
+
+
+def historical_runtime_root(*, environ=None) -> Path:
+    """Return the inherited application's read-only data root.
+
+    Mini never creates, migrates, or modifies this location automatically.
+    """
+    return windows_local_app_data(environ) / HISTORICAL_APP_DIRECTORY_NAME
+
+
+def prepare_runtime_directories(*, paths: RuntimePaths | None = None) -> RuntimePaths:
+    """Create only Mini-owned runtime directories and return their paths."""
+    selected = paths or runtime_paths()
+    for directory in (
+        selected.database.parent,
+        selected.result.parent,
+        selected.state.parent,
+        selected.log.parent,
+        selected.temporary_downloads,
+    ):
+        directory.mkdir(parents=True, exist_ok=True)
+    return selected
 
 
 def legacy_artifacts(*, paths: RuntimePaths | None = None,
@@ -456,7 +482,7 @@ def migrate_legacy_runtime_data(*, paths: RuntimePaths | None = None,
                                 lock_timeout: float = 10.0,
                                 lock_stale_seconds: float = LOCK_STALE_SECONDS) -> list[tuple[str, str]]:
     """Migrate only confirmed application-owned paths; safe to call repeatedly."""
-    log = logger or logging.getLogger("prisma_function")
+    log = logger or logging.getLogger("prisma_function_mini")
     paths = paths or runtime_paths()
     paths.root.mkdir(parents=True, exist_ok=True)
     lock = paths.root / LOCK_FILENAME
@@ -473,7 +499,7 @@ def migrate_legacy_runtime_data(*, paths: RuntimePaths | None = None,
             if inspection is not None and _quarantine_inspected_lock(lock, inspection):
                 continue
             if time.monotonic() >= deadline:
-                raise RuntimePathError("Runtime-data migration is busy in another PrismaFunction process. Retry shortly.")
+                raise RuntimePathError("Runtime-data migration is busy in another PrismaFunctionMini process. Retry shortly.")
             time.sleep(0.05)
         except Exception:
             try:

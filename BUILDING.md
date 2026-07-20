@@ -29,8 +29,8 @@ python validate_package.py
 ```
 
 The windowed application and its supporting files are written to
-`dist\PrismaFunction\`. The executable is expected at
-`dist\PrismaFunction\PrismaFunction.exe`.
+`dist\PrismaFunctionMini\`. The executable is expected at
+`dist\PrismaFunctionMini\PrismaFunctionMini.exe`.
 
 The Playwright Python modules needed by the application are included. The
 application uses an installed system-default Chrome or Edge browser; browser
@@ -40,9 +40,9 @@ release-readiness checks in `RELEASE_CHECKLIST.md`.
 Verify the Windows executable metadata in PowerShell:
 
 ```powershell
-$exe = Get-Item .\dist\PrismaFunction\PrismaFunction.exe
-if ($exe.VersionInfo.FileVersion -ne "1.0.0" -or $exe.VersionInfo.ProductVersion -ne "1.0.0") { throw "Executable version metadata mismatch." }
-if ($exe.VersionInfo.ProductName -ne "PRISMA Monitor" -or $exe.VersionInfo.OriginalFilename -ne "PrismaFunction.exe") { throw "Executable identity metadata mismatch." }
+$exe = Get-Item .\dist\PrismaFunctionMini\PrismaFunctionMini.exe
+if ($exe.VersionInfo.FileVersion -ne "0.1.0" -or $exe.VersionInfo.ProductVersion -ne "0.1.0") { throw "Executable version metadata mismatch." }
+if ($exe.VersionInfo.ProductName -ne "Prisma Function Mini" -or $exe.VersionInfo.OriginalFilename -ne "PrismaFunctionMini.exe") { throw "Executable identity metadata mismatch." }
 Write-Host "Executable metadata verified."
 ```
 
@@ -52,8 +52,8 @@ use the source tree, active virtual environment, current directory, or the
 distribution directory for writable data:
 
 ```powershell
-$smokeRoot = Join-Path $env:TEMP "PrismaFunction-P27-smoke"
-$packagedExe = (Resolve-Path .\dist\PrismaFunction\PrismaFunction.exe).Path
+$smokeRoot = Join-Path $env:TEMP "PrismaFunctionMini-smoke"
+$packagedExe = (Resolve-Path .\dist\PrismaFunctionMini\PrismaFunctionMini.exe).Path
 New-Item -ItemType Directory -Force -Path $smokeRoot | Out-Null
 $originalLocalAppData = [Environment]::GetEnvironmentVariable("LOCALAPPDATA", "Process")
 $originalLocation = Get-Location
@@ -74,12 +74,12 @@ try {
 When using a different repository location, replace the executable path with
 its absolute path. Confirm the main window opens without a console window, then
 close it normally. Verify that logs and any generated data are below
-`$smokeRoot\PrismaFunction` and that `dist\PrismaFunction` remains unchanged.
-This is a same-machine P.27 smoke check, not the clean-machine P.28 validation.
+`$smokeRoot\PrismaFunctionMini` and that `dist\PrismaFunctionMini` remains unchanged.
+This is a same-machine smoke check, not clean-machine validation.
 
 ## Prepare and create the release archive
 
-Version `1.0.0` is defined in `version.py`. Before preparing a release, start
+Version `0.1.0` is defined in `version.py`. Before preparing a release, start
 from a clean working tree, activate the project environment, and run the full
 validation commands below. Then build and archive from the repository root:
 
@@ -89,23 +89,23 @@ release.bat
 ```
 
 `release.bat` requires the successful onedir build at
-`dist\PrismaFunction\PrismaFunction.exe`. It uses Windows PowerShell and .NET;
+`dist\PrismaFunctionMini\PrismaFunctionMini.exe`. It uses Windows PowerShell and .NET;
 no external archive program is required. It creates these ignored outputs:
 
 ```text
-release\PrismaFunction-v1.0.0-windows-x64.zip
-release\PrismaFunction-v1.0.0-windows-x64.zip.sha256
+release\PrismaFunctionMini-v0.1.0-windows-x64.zip
+release\PrismaFunctionMini-v0.1.0-windows-x64.zip.sha256
 ```
 
-The ZIP has `PrismaFunction\` as its top-level directory. Its entries are
+The ZIP has `PrismaFunctionMini\` as its top-level directory. Its entries are
 sorted and use a fixed timestamp for reproducible archive input. Runtime CSV,
 log, cache, temporary, output, and virtual-environment files are excluded.
 
 Verify the checksum in PowerShell from the repository root:
 
 ```powershell
-$expected = (Get-Content .\release\PrismaFunction-v1.0.0-windows-x64.zip.sha256).Split()[0]
-$actual = (Get-FileHash .\release\PrismaFunction-v1.0.0-windows-x64.zip -Algorithm SHA256).Hash.ToLowerInvariant()
+$expected = (Get-Content .\release\PrismaFunctionMini-v0.1.0-windows-x64.zip.sha256).Split()[0]
+$actual = (Get-FileHash .\release\PrismaFunctionMini-v0.1.0-windows-x64.zip -Algorithm SHA256).Hash.ToLowerInvariant()
 if ($actual -ne $expected) { throw "SHA-256 checksum mismatch." }
 Write-Host "SHA-256 verified: $actual"
 ```
@@ -124,16 +124,16 @@ set PYTHONUTF8=1
 python -m pytest -q tests\test_packaging.py
 python -m pytest -q
 python -m compileall -q app.py auction_csv.py browser.py csv_contracts.py monitoring.py monitoring_storage.py notifications.py prisma_import_workflow.py prisma_page.py prisma_references.py prisma_source_updates.py processor.py runtime_logging.py runtime_paths.py scheduler.py storage.py ui_components.py validate_package.py version.py tests
-python -m PyInstaller --clean --noconfirm PrismaFunction.spec
+python -m PyInstaller --clean --noconfirm PrismaFunctionMini.spec
 python validate_package.py
 ```
 
 The packaging command validates the checked-in PyInstaller configuration and
-writes an unarchived build to `dist\PrismaFunction\`; CI does not publish or
+writes an unarchived build to `dist\PrismaFunctionMini\`; CI does not publish or
 upload it. Playwright browser binaries are not required by these checks.
 
 Source and packaged runs write application-owned data only below
-`%LOCALAPPDATA%\PrismaFunction`; they do not require the repository or install
-directory to be writable. On first launch, confirmed legacy database, result,
-state, and temporary-fallback log paths are copied and verified there. Close all
-other PrismaFunction processes before manually testing migration.
+`%LOCALAPPDATA%\PrismaFunctionMini`; they do not require the repository or install
+directory to be writable. Mini does not scan, copy, move, overwrite, or delete
+historical `%LOCALAPPDATA%\PrismaFunction` data automatically. See
+`M3_IDENTITY_AND_RUNTIME_BOUNDARY.md` for the migration decision.
