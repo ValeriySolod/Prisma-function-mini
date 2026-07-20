@@ -21,6 +21,7 @@ The roadmap and approved specification define scope. If they conflict or require
 ## Working rules
 
 - Implement all production changes through Codex.
+- Work autonomously. Do not provide step-by-step explanations, plans, or routine progress updates. Complete the requested changes and required validation, then provide only a concise final report. Ask a question only when the task is genuinely blocked.
 - One task must equal one complete, reviewable, and verified increment.
 - Start each increment from an up-to-date `main` and use a dedicated branch.
 - Recommended branches: `feature/m<number>-<short-name>`, `fix/m<number>-<short-name>`, or `docs/m<number>-<short-name>`.
