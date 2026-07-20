@@ -13,8 +13,8 @@
 
 | ID | Increment | Status | Deliverable | Exit criteria |
 |---|---|---|---|---|
-| M.1 | Mini documentation foundation | 🟡 In progress | Mini-specific `AGENTS.md`, `workflow_m.md`, `TECHNICAL_SPECIFICATION.md`, and `ROADMAP.md`. | Documents agree on scope, workflow, mapping, deduplication, reuse, and exclusions; merged to `main`. |
-| M.2 | Baseline and reuse inventory | ⬜ Planned | Evidence-backed inventory of reusable, adaptable, and removable components from Prisma-function. | Each production module and test group is classified; no code behavior changes. |
+| M.1 | Mini documentation foundation | ✅ Completed | Mini-specific `AGENTS.md`, `workflow_m.md`, `TECHNICAL_SPECIFICATION.md`, and `ROADMAP.md`. | Documents agree on scope, workflow, mapping, deduplication, reuse, and exclusions; merged to `main`. |
+| M.2 | Baseline and reuse inventory | ✅ Completed | Evidence-backed inventory of reusable, adaptable, and removable components from Prisma-function in `M2_BASELINE_REUSE_INVENTORY.md`. | Each production module and test group is classified; no code behavior changes. |
 | M.3 | Mini application identity and runtime boundary | ⬜ Planned | Mini name, version, executable identity, runtime paths, logs, database, workbook path, and packaging metadata. | No remaining runtime writes target the old PrismaFunction location; migration decision documented and tested. |
 | M.4 | Mini domain and output contracts | ⬜ Planned | Immutable date-range, source-operation, normalized-auction, workbook-row, audit, and failure contracts. | Approved 11-column mapping, units, types, ordering, reason codes, and validation rules have focused tests. |
 | M.5 | Stable deduplication and cumulative storage | ⬜ Planned | Mini-specific transactional SQLite storage and operation audit. | Exact retry and overlapping ranges are idempotent; conflicts fail closed; existing history survives restart. |
@@ -32,32 +32,31 @@
 
 ## Current increment
 
-### M.1 — Mini documentation foundation
+### M.2 — Baseline and reuse inventory
 
 Scope:
 
-- create Mini-specific agent instructions;
-- create Workflow M for Codex-driven implementation;
-- create the technical specification;
-- replace the inherited Prisma-function roadmap with a Mini roadmap;
-- define monitoring functionality as excluded unless separately approved.
+- classify every inherited production module and test group;
+- identify authoritative tests and stale documentation/package identity;
+- inventory documentation, packaging, source evidence, and runtime-data boundaries;
+- record database, migration, browser, download, workbook, and monitoring-removal risks;
+- make no production code or architecture changes.
 
-No production code changes belong to M.1.
+The completed evidence-backed deliverable is
+`M2_BASELINE_REUSE_INVENTORY.md`. No production code changes belong to M.2.
 
 ## Next recommended increment
 
-After M.1 is reviewed and merged, execute **M.2 — Baseline and reuse inventory**.
+Execute **M.3 — Mini application identity and runtime boundary** next.
 
-M.2 must classify the inherited code before deletion or adaptation. It must identify:
+M.3 must use the M.2 inventory to define and test:
 
-- components reusable unchanged;
-- components reusable after Mini-specific adaptation;
-- monitoring-only components to remove later;
-- tests that remain authoritative;
-- stale documentation and packaging identity;
-- risks around runtime data, database schema, browser visibility, and real PRISMA download behavior.
+- Mini application, display, executable, version-resource, package, and installer identity;
+- `%LOCALAPPDATA%\PrismaFunctionMini` runtime paths, database, workbook, state, and log names;
+- an explicit, non-destructive historical-data migration decision;
+- regression coverage proving no Mini runtime writes target the old PrismaFunction root.
 
-M.2 is documentation and analysis only. It must not remove or refactor production code.
+M.3 must not remove monitoring functionality; removal remains M.13.
 
 ## Maintenance rules
 
