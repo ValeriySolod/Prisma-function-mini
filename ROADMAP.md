@@ -18,7 +18,7 @@
 | M.3 | Mini application identity and runtime boundary | ✅ Completed | Mini name, version, executable identity, runtime paths, logs, database, workbook path, packaging metadata, and documented no-automatic-migration decision. | Merged to `main`; focused identity, runtime-path, logging, package, and installer tests pass. |
 | M.4 | Mini domain and output contracts | ✅ Completed | Immutable date-range, downloaded-source request, normalized-auction, 11-column output-row, accumulated-history, stable duplicate-key, validation-failure, and processing-result contracts in `mini_domain.py`. | Approved mapping, units, types, ordering, reason codes, normalization, failure rules, and duplicate behavior have focused tests. |
 | M.5 | Stable deduplication and cumulative storage | ✅ Completed | Mini-specific transactional SQLite storage and operation audit. | Exact retry and overlapping ranges are idempotent; conflicts fail closed; existing history survives restart. |
-| M.6 | Atomic cumulative Excel publication | ⬜ Planned | Deterministic `Auctions` worksheet generated from authoritative storage. | Existing rows are preserved, new unique rows appear once, types/widths/order are tested, and failed publication preserves the last valid workbook. |
+| M.6 | Atomic cumulative Excel publication | 🟡 In progress | Deterministic `Auctions` worksheet generated from authoritative storage. | Existing rows are preserved, new unique rows appear once, types/widths/order are tested, and failed publication preserves the last valid workbook. |
 | M.7 | Minimal Mini UI foundation | ⬜ Planned | Focused PySide6 window without monitoring dashboard behavior. | Start/end date controls, truthful state model, Start/Cancel/Open Result actions, and responsive worker signaling are tested. |
 | M.8 | Managed PRISMA background session | ⬜ Planned | Selectively reused Playwright lifecycle for Mini. | Startup, readiness, background/headless strategy, authentication-required, timeout, closure, cancellation, retry, and cleanup are covered. |
 | M.9 | Automated PRISMA date filtering | ⬜ Planned | Mini applies the selected date range and approved capacity filter. | Real DOM evidence confirms filter behavior; changed/unavailable DOM failures are typed; deterministic adapter tests pass. |
@@ -52,6 +52,20 @@ After M.5 is reviewed and merged into `main`, execute
 **M.6 — Atomic cumulative Excel publication** next. M.6 must generate the
 authoritative 11-column `Auctions` worksheet from Mini storage and preserve the
 last valid workbook on publication failure. Monitoring removal remains M.13.
+
+## Current increment
+
+### M.6 — Atomic cumulative Excel publication
+
+The M.6 feature branch renders the exact 11-column `Auctions` worksheet from
+Mini SQLite history in deterministic storage order. Excel dates, timestamps,
+numeric values, widths, and number formats are explicit. Publication validates
+a same-directory staged workbook before atomic replacement, removes abandoned
+staging files after failures, preserves an existing valid workbook on any
+staging or replacement failure, and leaves an equivalent workbook untouched on
+an exact retry.
+
+M.6 remains in progress until review and merge to `main`.
 
 ## Maintenance rules
 
