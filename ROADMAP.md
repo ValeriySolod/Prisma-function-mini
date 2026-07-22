@@ -19,8 +19,8 @@
 | M.4 | Mini domain and output contracts | ✅ Completed | Immutable date-range, downloaded-source request, normalized-auction, 11-column output-row, accumulated-history, stable duplicate-key, validation-failure, and processing-result contracts in `mini_domain.py`. | Approved mapping, units, types, ordering, reason codes, normalization, failure rules, and duplicate behavior have focused tests. |
 | M.5 | Stable deduplication and cumulative storage | ✅ Completed | Mini-specific transactional SQLite storage and operation audit. | Exact retry and overlapping ranges are idempotent; conflicts fail closed; existing history survives restart. |
 | M.6 | Atomic cumulative Excel publication | ✅ Completed | Deterministic `Auctions` worksheet generated from authoritative storage. | Existing rows are preserved, new unique rows appear once, types/widths/order are tested, and failed publication preserves the last valid workbook. |
-| M.7 | Minimal Mini UI foundation | 🟡 In progress | Focused PySide6 window without monitoring dashboard behavior. | Start/end date controls, truthful state model, Start/Cancel/Open Result actions, and responsive worker signaling are tested. |
-| M.8 | Managed PRISMA background session | ⬜ Planned | Selectively reused Playwright lifecycle for Mini. | Startup, readiness, background/headless strategy, authentication-required, timeout, closure, cancellation, retry, and cleanup are covered. |
+| M.7 | Minimal Mini UI foundation | ✅ Completed | Focused PySide6 window without monitoring dashboard behavior. | Start/end date controls, truthful state model, Start/Cancel/Open Result actions, and responsive worker signaling are tested; merged to `main`. |
+| M.8 | Managed PRISMA background session | 🟡 In progress | Mini-owned Playwright lifecycle with an explicit headless-first policy and no unverified visible fallback. | Startup, readiness, authentication-required, timeout, closure, cancellation, one bounded transient retry, and deterministic cleanup are covered without live access. |
 | M.9 | Automated PRISMA date filtering | ⬜ Planned | Mini applies the selected date range and approved capacity filter. | Real DOM evidence confirms filter behavior; changed/unavailable DOM failures are typed; deterministic adapter tests pass. |
 | M.10 | Automatic CSV download | ⬜ Planned | Verified download to an application-controlled temporary location. | Missing, partial, empty, wrong-contract, cancellation, timeout, and retry scenarios are covered; requested range is audited. |
 | M.11 | Integrated transformation workflow | ⬜ Planned | Download, validation, normalization, authoritative enrichment, storage, audit, and workbook publication operate as one workflow. | Every row is accounted for; failure is atomic; exact retry is unchanged; integrated tests pass. |
@@ -60,24 +60,24 @@ M.6 was reviewed and merged into `main`.
 
 ## Next recommended increment
 
-After M.7 is reviewed and merged into `main`, execute
-**M.8 — Managed PRISMA background session** next. Browser automation, CSV
-download, and integrated processing remain outside M.7. Monitoring removal
-remains M.13.
+After M.8 is reviewed and merged into `main`, execute **M.9 — Automated PRISMA
+date filtering** next. CSV download and integrated processing remain M.10 and
+M.11. Monitoring removal remains M.13.
 
 ## Current increment
 
-### M.7 — Minimal Mini UI foundation
+### M.8 — Managed PRISMA background session
 
-The M.7 feature branch replaces the inherited monitoring dashboard entry point
-with a focused PySide6 window. It provides start/end dates, validation before
-worker startup, the exact documented UI states, Start/Cancel/Open Result action
-policies, queued worker progress/outcome signals, cooperative cancellation, and
-shutdown that waits for owned non-daemon work. The workflow runner is an
-explicit seam; browser automation, download, and integrated processing are not
-implemented by M.7.
+The M.8 feature branch adds a Mini-specific, synchronous Playwright session
+boundary intended to run inside the existing M.7 non-GUI worker. It owns
+browser, context, page, listeners, and Playwright cleanup; detects readiness and
+authentication requirements; exposes typed startup, timeout, lifecycle, and
+cancellation failures; and retries transient startup/readiness failure once.
 
-M.7 remains in progress until review and merge to `main`.
+Headless mode is the explicit default. There is no automatic visible fallback
+until sanitized real-PRISMA evidence establishes whether headless operation is
+reliable. M.8 does not apply filters, download files, or integrate processing.
+M.8 remains in progress until review and merge to `main`.
 
 ## Maintenance rules
 

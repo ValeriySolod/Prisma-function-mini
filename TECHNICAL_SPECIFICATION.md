@@ -77,6 +77,14 @@ Unless separately approved, Mini does not include:
 - Mini must not bypass authentication, access controls, anti-bot controls, or PRISMA terms.
 - No browser processes owned by Mini may remain after completion or application shutdown.
 
+For M.8, the managed-session boundary defaults explicitly to headless Chromium
+using the supported system Chrome or Edge executable. It does not fall back to
+a visible session automatically because real-PRISMA background behavior has not
+yet been validated. Transient startup and readiness failures receive at most
+one immediate retry; authentication-required, cancellation, and unexpected
+closure do not retry. Every attempt closes its page, context, browser, event
+listeners, and Playwright driver before returning or retrying.
+
 ### FR-003 — Automatic CSV download
 
 - Mini must navigate to the approved PRISMA auction export page.
