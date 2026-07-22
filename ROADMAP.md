@@ -18,8 +18,8 @@
 | M.3 | Mini application identity and runtime boundary | ✅ Completed | Mini name, version, executable identity, runtime paths, logs, database, workbook path, packaging metadata, and documented no-automatic-migration decision. | Merged to `main`; focused identity, runtime-path, logging, package, and installer tests pass. |
 | M.4 | Mini domain and output contracts | ✅ Completed | Immutable date-range, downloaded-source request, normalized-auction, 11-column output-row, accumulated-history, stable duplicate-key, validation-failure, and processing-result contracts in `mini_domain.py`. | Approved mapping, units, types, ordering, reason codes, normalization, failure rules, and duplicate behavior have focused tests. |
 | M.5 | Stable deduplication and cumulative storage | ✅ Completed | Mini-specific transactional SQLite storage and operation audit. | Exact retry and overlapping ranges are idempotent; conflicts fail closed; existing history survives restart. |
-| M.6 | Atomic cumulative Excel publication | 🟡 In progress | Deterministic `Auctions` worksheet generated from authoritative storage. | Existing rows are preserved, new unique rows appear once, types/widths/order are tested, and failed publication preserves the last valid workbook. |
-| M.7 | Minimal Mini UI foundation | ⬜ Planned | Focused PySide6 window without monitoring dashboard behavior. | Start/end date controls, truthful state model, Start/Cancel/Open Result actions, and responsive worker signaling are tested. |
+| M.6 | Atomic cumulative Excel publication | ✅ Completed | Deterministic `Auctions` worksheet generated from authoritative storage. | Existing rows are preserved, new unique rows appear once, types/widths/order are tested, and failed publication preserves the last valid workbook. |
+| M.7 | Minimal Mini UI foundation | 🟡 In progress | Focused PySide6 window without monitoring dashboard behavior. | Start/end date controls, truthful state model, Start/Cancel/Open Result actions, and responsive worker signaling are tested. |
 | M.8 | Managed PRISMA background session | ⬜ Planned | Selectively reused Playwright lifecycle for Mini. | Startup, readiness, background/headless strategy, authentication-required, timeout, closure, cancellation, retry, and cleanup are covered. |
 | M.9 | Automated PRISMA date filtering | ⬜ Planned | Mini applies the selected date range and approved capacity filter. | Real DOM evidence confirms filter behavior; changed/unavailable DOM failures are typed; deterministic adapter tests pass. |
 | M.10 | Automatic CSV download | ⬜ Planned | Verified download to an application-controlled temporary location. | Missing, partial, empty, wrong-contract, cancellation, timeout, and retry scenarios are covered; requested range is audited. |
@@ -30,7 +30,7 @@
 | M.15 | Real PRISMA and clean-Windows validation | ⬜ Planned | Recorded end-to-end validation on a standard non-administrator Windows computer. | Background session, download, data-bearing transform, Excel output, retry, overlap, restart, shutdown, installer, and uninstaller checks pass. |
 | M.16 | Release readiness | ⬜ Planned | Versioned release archive, checksum, release notes, and final checklist. | Automated and required manual checks are recorded as passed; publication requires explicit approval. |
 
-## Completed increment
+## Completed increments
 
 ### M.5 — Stable deduplication and cumulative storage
 
@@ -46,15 +46,6 @@ outcome, inserted/duplicate/conflict/validation-failure counts, failure details,
 and timezone-aware UTC start/completion timestamps. Reads are deterministic,
 schema initialization is repeatable, and cumulative history survives reopening.
 
-## Next recommended increment
-
-After M.5 is reviewed and merged into `main`, execute
-**M.6 — Atomic cumulative Excel publication** next. M.6 must generate the
-authoritative 11-column `Auctions` worksheet from Mini storage and preserve the
-last valid workbook on publication failure. Monitoring removal remains M.13.
-
-## Current increment
-
 ### M.6 — Atomic cumulative Excel publication
 
 The M.6 feature branch renders the exact 11-column `Auctions` worksheet from
@@ -65,7 +56,28 @@ staging files after failures, preserves an existing valid workbook on any
 staging or replacement failure, and leaves an equivalent workbook untouched on
 an exact retry.
 
-M.6 remains in progress until review and merge to `main`.
+M.6 was reviewed and merged into `main`.
+
+## Next recommended increment
+
+After M.7 is reviewed and merged into `main`, execute
+**M.8 — Managed PRISMA background session** next. Browser automation, CSV
+download, and integrated processing remain outside M.7. Monitoring removal
+remains M.13.
+
+## Current increment
+
+### M.7 — Minimal Mini UI foundation
+
+The M.7 feature branch replaces the inherited monitoring dashboard entry point
+with a focused PySide6 window. It provides start/end dates, validation before
+worker startup, the exact documented UI states, Start/Cancel/Open Result action
+policies, queued worker progress/outcome signals, cooperative cancellation, and
+shutdown that waits for owned non-daemon work. The workflow runner is an
+explicit seam; browser automation, download, and integrated processing are not
+implemented by M.7.
+
+M.7 remains in progress until review and merge to `main`.
 
 ## Maintenance rules
 

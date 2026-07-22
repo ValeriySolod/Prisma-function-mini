@@ -36,14 +36,12 @@ The worksheet is named `Auctions` and uses this exact column order:
 
 ## Implementation status
 
-Roadmap increments M.1 through M.5 are implemented. M.5 adds Mini-specific
-transactional SQLite storage at the approved runtime database path. It preserves
-cumulative auction history across restarts, enforces the exact five-field M.4
-duplicate key, treats identical retries and overlaps idempotently, rejects
-same-key payload conflicts without partial auction writes, and records operation
-and validation-failure audit details. Atomic Excel publication is M.6; browser
-automation, automatic download, the Mini UI, packaging, and real
-Windows/PRISMA validation remain later increments.
+Roadmap increments M.1 through M.6 are implemented. The M.7 branch adds the
+minimal Mini window with date validation, truthful processing states,
+Start/Cancel/Open Result actions, responsive worker signals, and cooperative
+shutdown. Its workflow boundary intentionally reports that processing is not
+available yet; browser automation, automatic download, and integrated
+processing remain later increments.
 
 ## Development and tests
 
@@ -56,6 +54,6 @@ py -m venv .venv
 & .\.venv\Scripts\python.exe -m compileall -q .
 ```
 
-The current application entry point is `app.py`. It still contains inherited UI
-and monitoring behavior scheduled for replacement/removal by later roadmap
-increments; it is not yet the completed Mini workflow.
+The application entry point is `app.py`. It exposes only the focused Mini UI;
+inherited monitoring modules remain isolated until their scheduled removal in
+M.13 and are not reachable from this window.

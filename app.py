@@ -3,749 +3,293 @@ from __future__ import annotations
 import logging
 import sys
 import threading
-from dataclasses import dataclass
-from datetime import datetime
-from enum import Enum
+from datetime import date
 from pathlib import Path
+from typing import Callable
 
-from collections.abc import Callable
-
-from PySide6.QtCore import QDate, QObject, Qt, QTimer, QUrl, Signal
-from PySide6.QtGui import QColor, QDesktopServices
+from PySide6.QtCore import QDate, QObject, QTimer, QUrl, Signal
+from PySide6.QtGui import QCloseEvent, QDesktopServices
 from PySide6.QtWidgets import (
     QApplication,
-    QFileDialog,
     QDateEdit,
     QFrame,
+    QGridLayout,
     QHBoxLayout,
-    QHeaderView,
     QLabel,
-    QLayout,
-    QLineEdit,
-    QListWidget,
-    QListWidgetItem,
     QMainWindow,
     QMessageBox,
     QPushButton,
-    QTableView,
     QVBoxLayout,
     QWidget,
 )
 
-from auction_csv import AuctionCsvRecord, CsvValidationError, load_auction_csv
-from browser import BrowserController
-from monitoring import MonitoringEngine, MonitoringResult
-from monitoring_storage import MonitoringStorage, MonitoringStorageError
-from notifications import StatusChangeNotification
-from prisma_page import (
-    LivePrismaStatusAdapter,
-    PrismaAuctionNotFoundError,
-    PrismaLookupTimeoutError,
-    PrismaPageStructureError,
-    PrismaPageUnavailableError,
+from mini_ui import (
+    MiniUiState,
+    MiniUiStateModel,
+    MiniWorkCancelled,
+    MiniWorkOutcome,
+    MiniWorkRequest,
+    validate_date_range,
 )
-from prisma_import_workflow import PrismaWorkflowResult, run_prisma_import_workflow
-from runtime_logging import (
-    LOGGER_NAME,
-    initialize_runtime_logging,
-    safe_log,
-)
+from runtime_logging import LOGGER_NAME, initialize_runtime_logging, safe_log
 from runtime_paths import RuntimePathError, RuntimePaths, prepare_runtime_directories, runtime_paths
-from scheduler import MonitoringScheduler
-from ui_components import (
-    APP_STYLE,
-    ArrowComboBox,
-    AuctionFilterModel,
-    AuctionTableModel,
-    StatusDelegate,
-    SummaryCard,
-)
 from version import APP_DISPLAY_NAME, __version__
 
-DEFAULT_MONITORING_INTERVAL_SECONDS = 30.0
+
+WorkRunner = Callable[[MiniWorkRequest, threading.Event, Callable[[MiniUiState, str], None]], Path | None]
 
 
-@dataclass(frozen=True)
-class ProcessingOutcome:
-    result: PrismaWorkflowResult | None
-    error: str | None
-    generation: int
-
-
-class ActivityKind(Enum):
-    ACTIVITY = "activity"
-    STATUS_CHANGE = "status-change"
+def unavailable_workflow(
+    request: MiniWorkRequest,
+    cancel_event: threading.Event,
+    progress: Callable[[MiniUiState, str], None],
+) -> Path | None:
+    """M.7 boundary for the browser/download/processing workflow added later."""
+    del request, progress
+    if cancel_event.is_set():
+        raise MiniWorkCancelled
+    raise RuntimeError("Processing is not available in this version yet.")
 
 
 class WorkerSignals(QObject):
-    processing_finished = Signal(object)
-    monitoring_results = Signal(object)
-    monitoring_finished = Signal(object)
+    progress = Signal(object, str, int)
+    finished = Signal(object)
 
 
-class PrismaMonitorApp(QMainWindow):
-    def __init__(self, paths: RuntimePaths) -> None:
+class MiniMainWindow(QMainWindow):
+    def __init__(self, paths: RuntimePaths, *, work_runner: WorkRunner = unavailable_workflow) -> None:
         super().__init__()
         self._runtime_paths = paths
-        self.setWindowTitle(f"{APP_DISPLAY_NAME} v{__version__}")
-        self.setMinimumSize(1080, 680)
-        self.resize(1280, 800)
-        self.browser = BrowserController()
+        self._work_runner = work_runner
         self._logger = logging.getLogger(LOGGER_NAME)
-        self._is_closing = False
-        self._browser_ready = False
-        self._active_browser_launch: int | None = None
-        self._auction_records: list[AuctionCsvRecord] = []
-        self._monitoring_thread: threading.Thread | None = None
-        self._monitoring_stop_event: threading.Event | None = None
-        self._processing_threads: set[threading.Thread] = set()
-        self._active_processing_thread: threading.Thread | None = None
-        self._processing_active = False
-        self._processing_generation = 0
-        self._shutdown_started = False
+        self._state_model = MiniUiStateModel()
+        self._generation = 0
+        self._worker: threading.Thread | None = None
+        self._cancel_event: threading.Event | None = None
+        self._shutdown_requested = False
         self.signals = WorkerSignals(self)
-        self.signals.processing_finished.connect(self._processing_finished)
-        self.signals.monitoring_results.connect(self._monitoring_results)
-        self.signals.monitoring_finished.connect(self._monitoring_finished)
-        self._browser_timer = QTimer(self)
-        self._browser_timer.setInterval(50)
-        self._browser_timer.timeout.connect(self._poll_browser_launch)
+        self.signals.progress.connect(self._on_progress)
+        self.signals.finished.connect(self._on_finished)
+        self._shutdown_timer = QTimer(self)
+        self._shutdown_timer.setInterval(50)
+        self._shutdown_timer.timeout.connect(self.close)
         self._build_ui()
-        self._update_controls()
-        self._add_activity("Application ready")
+        self._render_state()
 
-    def _button(
-        self,
-        text: str,
-        handler: Callable[[], None],
-        *,
-        primary: bool = False,
-        sidebar: bool = True,
-        tooltip: str = "",
-    ) -> QPushButton:
-        button = QPushButton(text)
-        button.clicked.connect(handler)
-        button.setProperty("primary", primary)
-        button.setProperty("sidebar", sidebar)
-        button.setToolTip(tooltip)
-        button.setAccessibleName(text)
-        return button
+    @property
+    def state(self) -> MiniUiState:
+        return self._state_model.state
 
     def _build_ui(self) -> None:
+        self.setWindowTitle(f"{APP_DISPLAY_NAME} v{__version__}")
+        self.setMinimumSize(620, 360)
+        self.resize(720, 420)
+
         root = QWidget()
-        root.setObjectName("workspace")
-        outer = QHBoxLayout(root)
-        outer.setContentsMargins(0, 0, 0, 0)
-        outer.setSpacing(0)
-        sidebar = QFrame()
-        sidebar.setObjectName("sidebar")
-        sidebar.setFixedWidth(260)
-        side = QVBoxLayout(sidebar)
-        side.setContentsMargins(22, 24, 22, 22)
-        side.setSpacing(9)
-        brand = QLabel(APP_DISPLAY_NAME)
-        brand.setObjectName("brand")
-        subtitle = QLabel("PRISMA auction monitoring")
+        layout = QVBoxLayout(root)
+        layout.setContentsMargins(32, 28, 32, 28)
+        layout.setSpacing(20)
+
+        title = QLabel(APP_DISPLAY_NAME)
+        title.setObjectName("title")
+        subtitle = QLabel("Retrieve PRISMA auctions for a selected date range.")
         subtitle.setObjectName("subtitle")
-        side.addWidget(brand)
-        side.addWidget(subtitle)
-        side.addSpacing(20)
-        self.open_button = self._button("Open Browser", self.open_prisma, primary=True,
-            tooltip="Open a Prisma Function Mini-managed PRISMA browser session")
-        self.stop_browser_button = self._button("Stop Browser", self.stop_work)
-        self._side_group(side, "BROWSER", self.open_button, self.stop_browser_button)
-        self.load_csv_button = self._button("Load Monitoring CSV", self.select_csv, primary=True)
-        self.csv_filename = QLabel("No CSV selected")
-        self.csv_filename.setObjectName("filename")
-        self.csv_count = QLabel("0 records loaded")
-        self._side_group(side, "DATA SOURCE", self.load_csv_button, self.csv_filename, self.csv_count)
-        self.start_monitoring_button = self._button("Start Monitoring", self.start_monitoring, primary=True)
-        self.stop_monitoring_button = self._button("Stop Monitoring", self.stop_monitoring)
-        self._side_group(side, "MONITORING", self.start_monitoring_button, self.stop_monitoring_button)
-        side.addStretch()
-        self.import_date = QDateEdit(QDate.currentDate())
-        self.import_date.setCalendarPopup(True)
-        self.import_date.setDisplayFormat("yyyy-MM-dd")
-        self.import_date.setAccessibleName("PRISMA export source date")
-        self.import_date_label = QLabel("PRISMA EXPORT DATE")
-        self.import_date_label.setObjectName("subtitle")
-        source_date_help = (
-            "Identifies the daily PRISMA source and is used for controlled "
-            "update and exact-retry validation."
-        )
-        self.import_date_label.setToolTip(source_date_help)
-        self.import_date.setToolTip(source_date_help)
-        self.process_button = self._button(
-            "Import PRISMA Export", self.start_processing, sidebar=True,
-            tooltip="Import a complete original PRISMA Export CSV"
-        )
-        side.addWidget(self.import_date_label)
-        side.addWidget(self.import_date)
-        self.open_result_button = self._button("Open Result", self.open_result, sidebar=True)
-        side.addWidget(self.process_button)
-        side.addWidget(self.open_result_button)
-        version = QLabel(f"Version {__version__}")
-        version.setObjectName("subtitle")
-        side.addWidget(version)
+        layout.addWidget(title)
+        layout.addWidget(subtitle)
 
-        content = QWidget()
-        content.setObjectName("contentArea")
-        main = QVBoxLayout(content)
-        main.setContentsMargins(28, 22, 28, 20)
-        main.setSpacing(16)
-        header = QHBoxLayout()
-        titles = QVBoxLayout()
-        title = QLabel("Monitoring dashboard")
-        title.setStyleSheet("font-size: 19pt; font-weight: 700; color: #152033")
-        titles.addWidget(title)
-        dashboard_subtitle = QLabel(
-            "Track PRISMA auction states from your validated CSV data."
-        )
-        dashboard_subtitle.setObjectName("dashboardSubtitle")
-        titles.addWidget(dashboard_subtitle)
-        header.addLayout(titles)
-        header.addStretch()
-        self.browser_badge = QLabel("Disconnected")
-        self.browser_badge.setObjectName("browserBadge")
-        self.monitor_badge = QLabel("Monitoring idle")
-        self.monitor_badge.setObjectName("monitorBadge")
-        header.addWidget(self.browser_badge)
-        header.addWidget(self.monitor_badge)
-        main.addLayout(header)
-        cards = QHBoxLayout()
-        self.summary_cards: dict[str, SummaryCard] = {}
-        for key, caption in (("total", "Total"), ("active", "Pending / active"),
-                             ("completed", "Completed"), ("errors", "Errors")):
-            card = SummaryCard(caption)
-            self.summary_cards[key] = card
-            cards.addWidget(card)
-        main.addLayout(cards)
-        panel = QFrame()
-        panel.setObjectName("panel")
-        panel_layout = QVBoxLayout(panel)
-        panel_layout.setContentsMargins(16, 14, 16, 10)
-        tools = QHBoxLayout()
-        self.search_box = QLineEdit()
-        self.search_box.setPlaceholderText("Search Auction ID, lot, or market…")
-        self.search_box.setClearButtonEnabled(True)
-        self.search_box.setAccessibleName("Search auctions")
-        self.status_filter = ArrowComboBox()
-        self.status_filter.setProperty("arrowImplementation", "custom-paint")
-        self.status_filter.addItems(
-            ["All statuses", "Pending", "Scheduled", "Open", "In Progress", "Completed", "Cancelled", "Error", "Disabled"])
-        self.status_filter.setAccessibleName("Filter by status")
-        tools.addWidget(self.search_box, 1)
-        tools.addWidget(self.status_filter)
-        panel_layout.addLayout(tools)
-        self.table_model = AuctionTableModel(self)
-        self.proxy_model = AuctionFilterModel(self)
-        self.proxy_model.setSourceModel(self.table_model)
-        self.csv_table = QTableView()
-        self.csv_table.setModel(self.proxy_model)
-        self.csv_table.setAlternatingRowColors(True)
-        self.csv_table.setSortingEnabled(True)
-        self.csv_table.setSelectionBehavior(QTableView.SelectRows)
-        self.csv_table.setAccessibleName("Auctions")
-        self.csv_table.verticalHeader().hide()
-        self.csv_table.setItemDelegateForColumn(4, StatusDelegate(self.csv_table))
-        self.csv_table.setItemDelegateForColumn(5, StatusDelegate(self.csv_table))
-        hdr = self.csv_table.horizontalHeader()
-        hdr.setSectionResizeMode(QHeaderView.ResizeToContents)
-        hdr.setSectionResizeMode(2, QHeaderView.Stretch)
-        panel_layout.addWidget(self.csv_table, 1)
-        self.empty_label = QLabel("Load a CSV file to begin monitoring auctions.")
-        self.empty_label.setAlignment(Qt.AlignCenter)
-        self.empty_label.setStyleSheet("color:#718096; padding:18px")
-        panel_layout.addWidget(self.empty_label)
-        main.addWidget(panel, 1)
-        activity_panel = QFrame()
-        activity_panel.setObjectName("panel")
-        activity_layout = QVBoxLayout(activity_panel)
-        activity_header = QHBoxLayout()
-        activity_title = QLabel("Recent activity")
-        activity_title.setObjectName("contentSectionLabel")
-        activity_header.addWidget(activity_title)
-        activity_header.addStretch()
-        self.open_logs_button = self._button("Open log folder", self.open_log_directory, sidebar=False)
-        self.clear_activity_button = self._button("Clear", self.clear_activity, sidebar=False)
-        activity_header.addWidget(self.open_logs_button)
-        activity_header.addWidget(self.clear_activity_button)
-        self.activity_list = QListWidget()
-        self.activity_list.setObjectName("activityList")
-        self.activity_list.setMaximumHeight(105)
-        activity_layout.addLayout(activity_header)
-        activity_layout.addWidget(self.activity_list)
-        main.addWidget(activity_panel)
-        status_row = QHBoxLayout()
-        status_caption = QLabel("Status:")
-        status_caption.setObjectName("contentSectionLabel")
-        status_row.addWidget(status_caption)
-        self.status = QLabel("Ready")
-        self.status.setObjectName("primaryStatus")
-        self.status.setWordWrap(True)
-        status_row.addWidget(self.status, 1)
-        main.addLayout(status_row)
-        self.csv_path = QLineEdit()
-        self.csv_path.hide()  # compatibility/state holder, not user-editable
-        outer.addWidget(sidebar)
-        outer.addWidget(content, 1)
+        dates = QFrame()
+        dates.setObjectName("panel")
+        date_layout = QGridLayout(dates)
+        date_layout.setContentsMargins(20, 18, 20, 18)
+        date_layout.setHorizontalSpacing(16)
+        date_layout.setVerticalSpacing(8)
+        today = QDate.currentDate()
+        self.start_date = self._date_edit(today)
+        self.end_date = self._date_edit(today)
+        date_layout.addWidget(QLabel("Start date"), 0, 0)
+        date_layout.addWidget(QLabel("End date"), 0, 1)
+        date_layout.addWidget(self.start_date, 1, 0)
+        date_layout.addWidget(self.end_date, 1, 1)
+        layout.addWidget(dates)
+
+        actions = QHBoxLayout()
+        self.start_button = QPushButton("Start")
+        self.start_button.setObjectName("primaryButton")
+        self.cancel_button = QPushButton("Cancel")
+        self.open_result_button = QPushButton("Open Result")
+        for button in (self.start_button, self.cancel_button, self.open_result_button):
+            button.setAccessibleName(button.text())
+        self.start_button.clicked.connect(self.start_work)
+        self.cancel_button.clicked.connect(self.cancel_work)
+        self.open_result_button.clicked.connect(self.open_result)
+        actions.addWidget(self.start_button)
+        actions.addWidget(self.cancel_button)
+        actions.addStretch()
+        actions.addWidget(self.open_result_button)
+        layout.addLayout(actions)
+
+        status_caption = QLabel("Status")
+        status_caption.setObjectName("statusCaption")
+        self.status_label = QLabel()
+        self.status_label.setObjectName("status")
+        self.status_label.setWordWrap(True)
+        self.status_label.setAccessibleName("Processing status")
+        layout.addWidget(status_caption)
+        layout.addWidget(self.status_label)
+        layout.addStretch()
         self.setCentralWidget(root)
-        self.setStyleSheet(APP_STYLE)
-        self.search_box.textChanged.connect(self.proxy_model.set_search)
-        self.status_filter.currentTextChanged.connect(self.proxy_model.set_status)
-        self._set_badge(self.browser_badge, "Disconnected", "idle")
-        self._set_badge(self.monitor_badge, "Monitoring idle", "idle")
+        self.setStyleSheet(
+            "QMainWindow, QWidget { background: #f4f7fb; color: #1f2937; font-size: 10pt; }"
+            "QLabel#title { font-size: 22pt; font-weight: 700; color: #12233f; }"
+            "QLabel#subtitle { color: #5b6b82; }"
+            "QFrame#panel { background: white; border: 1px solid #d9e1ec; border-radius: 8px; }"
+            "QDateEdit { background: white; border: 1px solid #9eacbf; border-radius: 4px; padding: 7px; }"
+            "QPushButton { padding: 8px 16px; border: 1px solid #9eacbf; border-radius: 4px; background: white; }"
+            "QPushButton#primaryButton { background: #176b87; color: white; border-color: #176b87; font-weight: 600; }"
+            "QPushButton:disabled { color: #8a96a8; background: #e8edf3; border-color: #d4dbe5; }"
+            "QLabel#statusCaption { color: #5b6b82; font-weight: 600; }"
+            "QLabel#status { background: white; border: 1px solid #d9e1ec; border-radius: 6px; padding: 12px; }"
+        )
 
     @staticmethod
-    def _side_group(layout: QLayout, label: str, *widgets: QWidget) -> None:
-        heading = QLabel(label)
-        heading.setObjectName("section")
-        layout.addWidget(heading)
-        for widget in widgets:
-            layout.addWidget(widget)
-        layout.addSpacing(13)
+    def _date_edit(value: QDate) -> QDateEdit:
+        control = QDateEdit(value)
+        control.setCalendarPopup(True)
+        control.setDisplayFormat("yyyy-MM-dd")
+        return control
 
-    def _set_badge(self, badge: QLabel, text: str, state: str) -> None:
-        badge.setText(text)
-        badge.setProperty("state", state)
-        badge.style().unpolish(badge)
-        badge.style().polish(badge)
+    def _render_state(self) -> None:
+        policy = self._state_model.action_policy(self._runtime_paths.result.exists())
+        self.start_date.setEnabled(policy.dates_enabled)
+        self.end_date.setEnabled(policy.dates_enabled)
+        self.start_button.setEnabled(policy.start_enabled)
+        self.cancel_button.setEnabled(policy.cancel_enabled)
+        self.open_result_button.setEnabled(policy.open_result_enabled)
+        self.status_label.setText(self._state_model.message)
 
-    def _add_activity(
-        self, message: str, kind: ActivityKind = ActivityKind.ACTIVITY
-    ) -> None:
-        label = "Status change — " if kind is ActivityKind.STATUS_CHANGE else ""
-        item = QListWidgetItem(f"{datetime.now():%H:%M:%S}  {label}{message}")
-        item.setData(Qt.UserRole, kind.value)
-        if kind is ActivityKind.STATUS_CHANGE:
-            font = item.font()
-            font.setBold(True)
-            item.setFont(font)
-            item.setForeground(QColor("#075985"))
-            item.setData(
-                Qt.AccessibleDescriptionRole,
-                f"Status change notification. {message}",
-            )
-        self.activity_list.insertItem(0, item)
-        while self.activity_list.count() > 50:
-            self.activity_list.takeItem(self.activity_list.count() - 1)
+    def _set_state(self, state: MiniUiState, message: str) -> None:
+        self._state_model.transition(state, message)
+        self._render_state()
 
-    def clear_activity(self) -> None:
-        self.activity_list.clear()
-
-    def _update_controls(self) -> None:
-        launching = self._active_browser_launch is not None and not self._browser_ready
-        monitoring = self._monitoring_thread is not None
-        has_records = any(record.enabled for record in self._auction_records)
-        self.open_button.setEnabled(not launching and not self._browser_ready)
-        self.stop_browser_button.setEnabled(launching or self._browser_ready)
-        self.load_csv_button.setEnabled(not monitoring)
-        self.start_monitoring_button.setEnabled(self._browser_ready and has_records and not monitoring)
-        self.stop_monitoring_button.setEnabled(monitoring)
-        self.process_button.setEnabled(not self._processing_active)
-        self.import_date.setEnabled(not self._processing_active)
-
-    def select_csv(self) -> None:
-        selected, _ = QFileDialog.getOpenFileName(self, "Load Monitoring CSV", "", "CSV files (*.csv)")
-        if not selected:
+    def start_work(self) -> None:
+        if self._state_model.is_active:
             return
+        self._set_state(MiniUiState.VALIDATING, "Validating date range…")
+        validation = validate_date_range(
+            self.start_date.date().toPython(), self.end_date.date().toPython(), today=date.today()
+        )
+        if validation.error is not None:
+            self._set_state(MiniUiState.ERROR, validation.error)
+            return
+
+        self._generation += 1
+        generation = self._generation
+        request = MiniWorkRequest(validation.date_range)
+        cancel_event = threading.Event()
+        worker = threading.Thread(
+            target=self._run_worker,
+            args=(request, cancel_event, generation),
+            name="mini-workflow",
+            daemon=False,
+        )
+        self._cancel_event = cancel_event
+        self._worker = worker
+        self._set_state(MiniUiState.OPENING_PRISMA, "Opening PRISMA…")
         try:
-            records = load_auction_csv(selected)
-        except CsvValidationError as exc:
-            self._show_error("CSV Error", str(exc))
-            return
+            worker.start()
         except Exception as exc:
-            safe_log(self._logger, logging.ERROR, "CSV load failed: %s", exc)
-            self._show_error(
-                "CSV Error",
-                "The CSV file could not be loaded. Check the file and try again.",
-            )
-            return
-        self._auction_records = records
-        self.csv_path.setText(selected)
-        self.table_model.set_records(records)
-        self.csv_filename.setText(Path(selected).name)
-        self.csv_count.setText(f"{len(records)} records loaded")
-        self.empty_label.hide()
-        self._update_summary()
-        self._update_controls()
-        self.status.setText(f"Loaded {Path(selected).name}: {len(records)} records")
-        self._add_activity(f"CSV loaded: {Path(selected).name} ({len(records)} records)")
+            self._worker = None
+            self._cancel_event = None
+            safe_log(self._logger, logging.ERROR, "Worker startup failed: %s", type(exc).__name__)
+            self._set_state(MiniUiState.ERROR, "Processing could not be started.")
 
-    def _display_csv_records(self, records: list[AuctionCsvRecord]) -> None:
-        self.table_model.set_records(records)
-        self.empty_label.setVisible(not records)
-        self._update_summary()
+    def _run_worker(self, request: MiniWorkRequest, cancel_event: threading.Event, generation: int) -> None:
+        def progress(state: MiniUiState, message: str) -> None:
+            if state not in MiniUiState.worker_progress_states():
+                raise ValueError("Worker reported an unsupported UI state.")
+            self.signals.progress.emit(state, message, generation)
 
-    def _update_summary(self) -> None:
-        for key, count in self.table_model.counts().items():
-            self.summary_cards[key].value.setText(str(count))
-
-    def open_prisma(self) -> None:
-        if self._active_browser_launch is not None or self._browser_ready:
-            return
         try:
-            self.status.setText("Opening the managed PRISMA browser…")
-            self._set_badge(self.browser_badge, "Opening", "working")
-            self._active_browser_launch = self.browser.open()
-            self._browser_timer.start()
-            self._update_controls()
-        except Exception as exc:
-            self._browser_start_failed(exc)
-
-    def _poll_browser_launch(self) -> None:
-        if self._is_closing or self._active_browser_launch is None:
-            self._browser_timer.stop()
-            return
-        for result in self.browser.get_launch_results():
-            if result.generation != self._active_browser_launch:
-                continue
-            if result.success:
-                self._browser_ready = True
-                self._set_badge(self.browser_badge, "Ready", "ready")
-                self.status.setText("PRISMA browser session is ready")
-                self._add_activity("Browser opened")
-            elif result.kind == "launch":
-                self._browser_start_failed(result.error or "Unknown error")
-                return
+            result_path = self._work_runner(request, cancel_event, progress)
+            if cancel_event.is_set():
+                outcome = MiniWorkOutcome.cancelled(generation)
             else:
-                self._active_browser_launch = None
-                self._browser_ready = False
-                self._browser_timer.stop()
-                if self._monitoring_stop_event is not None: self._monitoring_stop_event.set()
-                self._set_badge(self.browser_badge, "Disconnected", "error")
-                self.status.setText("The managed PRISMA page or browser was closed. Open it again to retry.")
-                self._add_activity("Browser session closed")
-            self._update_controls()
-            return
-
-    def _browser_start_failed(self, exc: Exception | str) -> None:
-        if self._is_closing:
-            return
-        self._active_browser_launch = None
-        self._browser_ready = False
-        self._browser_timer.stop()
-        safe_log(self._logger, logging.ERROR, "Browser launch failed: %s", exc)
-        self._set_badge(self.browser_badge, "Error", "error")
-        self._update_controls()
-        self._show_error(
-            "Browser Error",
-            "The browser could not be opened. Check Chrome or Edge and try again.",
-        )
-        self.status.setText("Failed to open the browser")
-        self._add_activity("Browser error")
-
-    def create_monitoring_engine(self) -> MonitoringEngine:
-        return MonitoringEngine(
-            LivePrismaStatusAdapter(self.browser),
-            persistence=MonitoringStorage(self._runtime_paths.database),
-        )
-
-    def create_monitoring_scheduler(
-        self, records: list[AuctionCsvRecord]
-    ) -> MonitoringScheduler:
-        return MonitoringScheduler(self.create_monitoring_engine(), lambda: records)
-
-    def start_monitoring(self) -> None:
-        if self._monitoring_thread is not None:
-            return
-        records = [record for record in self._auction_records if record.enabled]
-        if not records or not self._browser_ready:
-            self._show_error(
-                "Monitoring Error",
-                "Open the browser and load a CSV with enabled auctions first.",
-            )
-            return
-        stop_event = threading.Event()
-        scheduler = self.create_monitoring_scheduler(records)
-        thread = threading.Thread(
-            target=self._monitoring_worker,
-            args=(scheduler, stop_event),
-            daemon=False,
-            name="prisma-monitoring",
-        )
-        self._monitoring_stop_event, self._monitoring_thread = stop_event, thread
-        self._set_badge(self.monitor_badge, "Monitoring active", "ready")
-        self.status.setText("Monitoring started")
-        self._add_activity("Monitoring started")
-        self._update_controls()
-        try:
-            thread.start()
+                outcome = MiniWorkOutcome.completed(generation, result_path)
+        except MiniWorkCancelled:
+            outcome = MiniWorkOutcome.cancelled(generation)
         except Exception as exc:
-            self._set_monitoring_idle()
-            safe_log(
-                self._logger, logging.ERROR, "Monitoring start failed: %s", exc
-            )
-            self._show_error(
-                "Monitoring Error", "Monitoring could not be started. Please try again."
-            )
+            safe_log(self._logger, logging.ERROR, "Mini workflow failed: %s", type(exc).__name__)
+            outcome = MiniWorkOutcome.failed(generation, str(exc))
+        self.signals.finished.emit(outcome)
 
-    def stop_monitoring(self) -> None:
-        if self._monitoring_stop_event is not None:
-            self._monitoring_stop_event.set()
-            self.status.setText("Stopping monitoring…")
-            self._set_badge(self.monitor_badge, "Stopping", "working")
-
-    def _monitoring_worker(
-        self, scheduler: MonitoringScheduler, stop_event: threading.Event
-    ) -> None:
-        error = None
-        try:
-            scheduler.run_forever(
-                stop_event,
-                DEFAULT_MONITORING_INTERVAL_SECONDS,
-                self.signals.monitoring_results.emit,
-            )
-        except Exception as exc:
-            error = exc
-        self.signals.monitoring_finished.emit(error)
-
-    def _monitoring_results(self, results: list[MonitoringResult]) -> None:
-        changed = errors = 0
-        notifications: list[StatusChangeNotification] = []
-        for result in results:
-            self.table_model.apply_result(result)
-            changed += bool(result.status_changed)
-            errors += result.result == "Error"
-            notification = StatusChangeNotification.from_result(result)
-            if notification is not None:
-                notifications.append(notification)
-        self._update_summary()
-        # The list is newest-first. Reverse insertion preserves the scheduler's
-        # deterministic result order directly below the cycle summary.
-        for notification in reversed(notifications):
-            self._add_activity(
-                notification.message(), ActivityKind.STATUS_CHANGE
-            )
-        self._add_activity(
-            f"Statuses updated: {len(results)} checked, "
-            f"{changed} changed, {errors} errors"
-        )
-
-    @staticmethod
-    def _monitoring_failure_message(error: object) -> str:
-        if isinstance(error, PrismaLookupTimeoutError):
-            return (
-                "The live PRISMA status lookup timed out. "
-                "Reopen the browser and retry."
-            )
-        if isinstance(error, PrismaPageUnavailableError):
-            return (
-                "The PRISMA page is unavailable or closed. "
-                "Reopen the browser and retry."
-            )
-        if isinstance(error, PrismaPageStructureError):
-            return (
-                "The PRISMA page structure could not be read. "
-                "Reopen the browser or retry."
-            )
-        if isinstance(error, PrismaAuctionNotFoundError):
-            return str(error)
-        if isinstance(error, MonitoringStorageError):
-            return "Monitoring history could not be saved. Please retry."
-        return "Monitoring stopped because of an unexpected error. Please retry."
-
-    def _monitoring_finished(self, error: object = None) -> None:
-        if self._is_closing:
+    def _on_progress(self, state: MiniUiState, message: str, generation: int) -> None:
+        if generation != self._generation or self._shutdown_requested or self.state is MiniUiState.CANCELLING:
             return
-        self._set_monitoring_idle()
-        if error is not None:
-            message = self._monitoring_failure_message(error)
-            safe_log(
-                self._logger, logging.WARNING, "Monitoring terminated: %s", error
-            )
-            self.status.setText(message)
-            self._show_error("Monitoring Error", message)
-            self._add_activity("Monitoring error")
+        self._set_state(state, message)
+
+    def _on_finished(self, outcome: MiniWorkOutcome) -> None:
+        if outcome.generation != self._generation:
+            return
+        worker = self._worker
+        if worker is not None and worker.is_alive():
+            QTimer.singleShot(10, lambda: self._on_finished(outcome))
+            return
+        if worker is not None:
+            worker.join(timeout=0)
+        self._worker = None
+        self._cancel_event = None
+        if self._shutdown_requested:
+            self.close()
+            return
+        if outcome.was_cancelled:
+            self._set_state(MiniUiState.IDLE, "Cancelled. Ready to start.")
+        elif outcome.error is not None:
+            self._set_state(MiniUiState.ERROR, outcome.public_error)
+        elif not self._runtime_paths.result.exists():
+            self._set_state(MiniUiState.ERROR, "Processing completed without a result file.")
         else:
-            self.status.setText("Monitoring stopped")
-            self._add_activity("Monitoring stopped")
+            self._set_state(MiniUiState.COMPLETED, "Completed. The result is ready.")
 
-    def _set_monitoring_idle(self) -> None:
-        self._monitoring_thread = None
-        self._monitoring_stop_event = None
-        self._set_badge(self.monitor_badge, "Monitoring idle", "idle")
-        self._update_controls()
-
-    def stop_work(self) -> None:
-        if self._monitoring_thread is not None:
-            answer = QMessageBox.question(
-                self,
-                "Stop Browser",
-                "Monitoring is active. Stop monitoring and close the managed browser?",
-                QMessageBox.Yes | QMessageBox.No,
-                QMessageBox.No,
-            )
-            if answer != QMessageBox.Yes:
-                return
-            self.stop_monitoring()
-        self.browser.stop()
-        self._active_browser_launch = None
-        self._browser_ready = False
-        self._browser_timer.stop()
-        self._set_badge(self.browser_badge, "Disconnected", "idle")
-        self._update_controls()
-        self.status.setText("Managed browser closed")
-        self._add_activity("Browser stopped")
-
-    def start_processing(self) -> None:
-        if self._processing_active:
+    def cancel_work(self) -> None:
+        if not self._state_model.is_active or self.state is MiniUiState.CANCELLING:
             return
-        selected, _ = QFileDialog.getOpenFileName(
-            self, "Import PRISMA Export CSV", "", "CSV files (*.csv)"
-        )
-        if not selected:
-            return
-        source = Path(selected)
-        self._processing_active = True
-        self.status.setText("Importing PRISMA Export CSV…")
-        self._add_activity(f"PRISMA import started: {source.name}")
-        self._update_controls()
-        selected_date = self.import_date.date().toPython()
-        self._processing_generation += 1
-        generation = self._processing_generation
-        thread = threading.Thread(
-            target=self._process_worker,
-            args=(source, selected_date, generation),
-            daemon=False,
-            name="prisma-processing",
-        )
-        self._processing_threads.add(thread)
-        self._active_processing_thread = thread
-        try:
-            thread.start()
-        except Exception as exc:
-            self._processing_threads.discard(thread)
-            self._processing_active = False
-            self._update_controls()
-            self._processing_finished(ProcessingOutcome(None, str(exc), generation))
-
-    def _process_worker(self, source: Path, source_date=None, generation: int = 0) -> None:
-        try:
-            result = run_prisma_import_workflow(
-                source,
-                source_date=source_date or datetime.now().date(),
-                evaluated_at=datetime.now().astimezone(),
-                database_path=self._runtime_paths.database,
-                state_path=self._runtime_paths.state,
-                output_path=self._runtime_paths.result,
-            )
-            self.signals.processing_finished.emit(
-                ProcessingOutcome(result, None, generation)
-            )
-        except Exception as exc:
-            self.signals.processing_finished.emit(
-                ProcessingOutcome(None, str(exc), generation)
-            )
-
-    def _processing_finished(self, outcome: ProcessingOutcome) -> None:
-        if outcome.generation != self._processing_generation:
-            return
-        if outcome.error is not None:
-            self._processing_failed(outcome.error, None)
-        elif outcome.result is not None:
-            self._processing_succeeded(outcome.result, None)
-
-    def _finish_processing(self, thread: threading.Thread | None) -> bool:
-        if thread is None:
-            thread = self._active_processing_thread
-        if thread is not None and thread is not self._active_processing_thread:
-            return False
-        if thread is not None and thread.is_alive():
-            thread.join(timeout=0.1)
-        if thread is not None and not thread.is_alive():
-            self._processing_threads.discard(thread)
-        self._active_processing_thread = None
-        self._processing_active = False
-        self._update_controls()
-        return True
-
-    def _processing_succeeded(
-        self, result: PrismaWorkflowResult, thread: threading.Thread | None
-    ) -> None:
-        if not self._is_closing and self._finish_processing(thread):
-            self.status.setText(result.summary())
-            self._add_activity(
-                f"PRISMA import completed: {result.processed} processed, "
-                f"{len(result.issues)} audit issues"
-            )
-            for issue in result.issues[:5]:
-                self._add_activity(
-                    f"Row {issue.source_row_number}: {issue.status.value} — {issue.message}"
-                )
-
-    def _processing_failed(
-        self, error: str, thread: threading.Thread | None
-    ) -> None:
-        if not self._is_closing and self._finish_processing(thread):
-            safe_log(self._logger, logging.ERROR, "Processing failed: %s", error)
-            self._show_error(
-                "Processing Error",
-                f"PRISMA import failed: {error}",
-            )
-            self.status.setText(f"PRISMA import failed: {error}")
+        if self._cancel_event is not None:
+            self._cancel_event.set()
+        self._set_state(MiniUiState.CANCELLING, "Cancelling…")
 
     def open_result(self) -> None:
         result = self._runtime_paths.result
         if not result.exists():
-            QMessageBox.information(
-                self, "Result Not Found", "Process a CSV file first."
-            )
+            self._set_state(MiniUiState.ERROR, "The result file does not exist yet.")
             return
-        QDesktopServices.openUrl(QUrl.fromLocalFile(str(result)))
+        if not QDesktopServices.openUrl(QUrl.fromLocalFile(str(result))):
+            self._set_state(MiniUiState.ERROR, "The result file could not be opened.")
 
-    def open_log_directory(self) -> None:
-        path = self._runtime_paths.log.parent
-        path.mkdir(parents=True, exist_ok=True)
-        if not QDesktopServices.openUrl(QUrl.fromLocalFile(str(path))):
-            self._show_error("Log Folder", "The log folder could not be opened.")
-
-    def _show_error(self, title: str, message: str) -> None:
-        QMessageBox.critical(self, title, message)
-
-    def closeEvent(self, event) -> None:
-        if not self._shutdown_started and self._monitoring_thread is not None:
-            answer = QMessageBox.question(
-                self,
-                f"Close {APP_DISPLAY_NAME}",
-                f"Monitoring is active. Stop monitoring and close {APP_DISPLAY_NAME}?",
-                QMessageBox.Yes | QMessageBox.No,
-                QMessageBox.No,
-            )
-            if answer != QMessageBox.Yes:
-                event.ignore()
-                return
-        if not self._shutdown_started:
-            self._shutdown_started = True
-            self._is_closing = True
-            self._browser_timer.stop()
-            self._active_browser_launch = None
-            if self._monitoring_stop_event is not None:
-                self._monitoring_stop_event.set()
-            self.browser.stop()
-        threads = (
-            [self._monitoring_thread] if self._monitoring_thread else []
-        ) + list(self._processing_threads)
-        if any(
-            thread is not threading.current_thread() and thread.is_alive()
-            for thread in threads
-        ):
-            self.status.setText("Closing; a background import is finishing safely.")
+    def closeEvent(self, event: QCloseEvent) -> None:
+        worker = self._worker
+        if worker is not None and worker.is_alive():
+            self._shutdown_requested = True
+            if self._cancel_event is not None:
+                self._cancel_event.set()
+            self._set_state(MiniUiState.CANCELLING, "Cancelling before closing…")
+            self._shutdown_timer.start()
             event.ignore()
-            QTimer.singleShot(100, self.close)
             return
+        self._shutdown_timer.stop()
         event.accept()
+
+
+# Compatibility alias for the packaged entry point and older integrations.
+PrismaMonitorApp = MiniMainWindow
 
 
 def main() -> int:
     application = QApplication.instance() or QApplication(sys.argv)
     application.setApplicationName(APP_DISPLAY_NAME)
     application.setApplicationVersion(__version__)
-    initialization_error = None
-    paths = None
     try:
         paths = runtime_paths()
-        logger, log_path = initialize_runtime_logging(paths.log)
+        _, log_path = initialize_runtime_logging(paths.log)
         if log_path is None:
             raise RuntimePathError(
                 "The required user-data log file could not be created. "
@@ -753,18 +297,14 @@ def main() -> int:
             )
         prepare_runtime_directories(paths=paths)
     except Exception as exc:
-        initialization_error = str(exc)
-        if any(getattr(handler, "baseFilename", None) for handler in logging.getLogger(LOGGER_NAME).handlers):
-            logging.getLogger(LOGGER_NAME).exception("Runtime-data initialization failed")
-    if initialization_error is not None:
         QMessageBox.critical(
             None,
             f"{APP_DISPLAY_NAME} Data Error",
             f"{APP_DISPLAY_NAME} could not prepare its user-data directory. "
-            f"No historical data was modified. {initialization_error}",
+            f"No historical data was modified. {exc}",
         )
         return 1
-    window = PrismaMonitorApp(paths)
+    window = MiniMainWindow(paths)
     window.show()
     return application.exec()
 
