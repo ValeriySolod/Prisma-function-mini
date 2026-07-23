@@ -82,3 +82,9 @@ State:
 - checks actually completed;
 - known limitations and outstanding manual validation;
 - the exact next action required from the user.
+- Work autonomously.
+- Keep user-facing communication to the minimum required by system instructions and this `AGENTS.md`.
+- Do not provide tutorials, detailed reasoning, step-by-step explanations, plans, or routine progress narration.
+- Provide an update only when required or when a material blocker, risk, or unexpected result appears.
+- Ask a question only when the task cannot safely continue without user input.
+- Complete implementation and validation directly, then provide one concise final report following `Completion report`.
