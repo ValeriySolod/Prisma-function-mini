@@ -18,7 +18,7 @@ from pathlib import Path
 APP_DIRECTORY_NAME = "PrismaFunctionMini"
 HISTORICAL_APP_DIRECTORY_NAME = "PrismaFunction"
 DATABASE_FILENAME = "prisma_function_mini.db"
-RESULT_FILENAME = "prisma_function_mini.xlsx"
+RESULT_FILENAME = "prisma_function_mini.csv"
 STATE_FILENAME = "prisma_function_mini_state.json"
 LOG_FILENAME = "prisma-function-mini.log"
 TEMPORARY_DOWNLOAD_DIRECTORY_NAME = "temporary-downloads"

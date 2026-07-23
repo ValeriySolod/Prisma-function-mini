@@ -20,7 +20,7 @@ def paths(root):
     app_root = root / "PrismaFunctionMini"
     return RuntimePaths(
         app_root, app_root / "data" / "prisma_function_mini.db",
-        app_root / "data" / "result" / "prisma_function_mini.xlsx",
+        app_root / "data" / "result" / "prisma_function_mini.csv",
         app_root / "state" / "prisma_function_mini_state.json",
         app_root / "logs" / "prisma-function-mini.log",
         app_root / "temporary-downloads",
@@ -42,6 +42,7 @@ def record(number=1, **changes):
         flow_end=datetime(2026, 7, number + 2, 6),
         booked_capacity_kwh_h=Decimal("1000"), duration_hours=Decimal("24"),
         auction_tariff_eur_mwh_h=Decimal("1.25"),
+        auction_premium_eur_mwh_h=None,
     )
     values.update(changes)
     return NormalizedAuctionRecord(**values)
@@ -82,6 +83,17 @@ def test_same_key_changed_payload_is_audited_and_fails_closed(tmp_path):
     assert audit.outcome is StorageOutcome.FAILED
     assert (audit.conflicts, audit.validation_failures) == (1, 0)
     assert audit.failures[0].reason is ValidationReason.CONFLICTING_DUPLICATE
+
+
+def test_same_key_changed_premium_conflicts_and_blank_premium_round_trips(tmp_path):
+    storage = MiniAuctionStorage(paths=paths(tmp_path))
+    storage.store(request(), [record()])
+    assert storage.history()[0].auction.auction_premium_eur_mwh_h is None
+    with pytest.raises(AuctionConflictError):
+        storage.store(
+            request(sha=SHA_B),
+            [record(auction_premium_eur_mwh_h=Decimal("0.25"))],
+        )
 
 
 def test_batch_conflict_writes_no_new_auctions(tmp_path):
@@ -140,6 +152,37 @@ def test_schema_initialization_is_repeatable_and_preserves_unrelated_table(tmp_p
             "SELECT name FROM sqlite_master WHERE type = 'table'")}
         assert connection.execute("SELECT value FROM unrelated").fetchone()[0] == "kept"
     assert {"mini_auctions", "mini_operations", "mini_operation_failures"} <= tables
+
+
+def test_m5_database_is_upgraded_without_losing_history(tmp_path):
+    selected = paths(tmp_path)
+    selected.database.parent.mkdir(parents=True)
+    with sqlite3.connect(selected.database) as connection:
+        connection.executescript("""
+            CREATE TABLE mini_auctions (
+                id INTEGER PRIMARY KEY,
+                auction_id TEXT NOT NULL, network_point_id TEXT NOT NULL,
+                auction_date TEXT NOT NULL, exit_market_or_storage TEXT,
+                entry_market_or_storage TEXT, capacity_type TEXT NOT NULL,
+                network_point TEXT NOT NULL, product_type TEXT NOT NULL,
+                flow_start TEXT NOT NULL, flow_end TEXT NOT NULL,
+                booked_capacity_kwh_h TEXT NOT NULL, duration_hours TEXT NOT NULL,
+                auction_tariff_eur_mwh_h TEXT NOT NULL, source_sha256 TEXT NOT NULL,
+                accumulated_at_utc TEXT NOT NULL,
+                UNIQUE(auction_id, network_point_id, capacity_type, flow_start, flow_end)
+            );
+            INSERT INTO mini_auctions VALUES (
+                1, 'A-old', 'NP-old', '2026-07-01', NULL, NULL, 'Exit',
+                'Old Point', 'Day Ahead', '2026-07-02T06:00:00',
+                '2026-07-03T06:00:00', '1000', '24', '1.25',
+                'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+                '2026-07-01T00:00:00+00:00'
+            );
+        """)
+    history = MiniAuctionStorage(paths=selected).history()
+    assert len(history) == 1
+    assert history[0].auction.auction_id == "A-old"
+    assert history[0].auction.auction_premium_eur_mwh_h is None
 
 
 def test_database_location_is_approved_runtime_path(tmp_path):

@@ -21,7 +21,7 @@ def test_windows_local_app_data_resolution_and_layout(user_data):
     paths = runtime_paths.runtime_paths()
     assert paths.root == user_data / "PrismaFunctionMini"
     assert paths.database == paths.root / "data" / "prisma_function_mini.db"
-    assert paths.result == paths.root / "data" / "result" / "prisma_function_mini.xlsx"
+    assert paths.result == paths.root / "data" / "result" / "prisma_function_mini.csv"
     assert paths.state == paths.root / "state" / "prisma_function_mini_state.json"
     assert paths.log == paths.root / "logs" / "prisma-function-mini.log"
     assert paths.temporary_downloads == paths.root / "temporary-downloads"
@@ -47,7 +47,7 @@ def _legacy_tree(root: Path):
         connection.execute("PRAGMA journal_mode=WAL")
         connection.execute("CREATE TABLE sample(value TEXT)")
         connection.execute("INSERT INTO sample VALUES ('preserved')")
-    (data / "result" / runtime_paths.RESULT_FILENAME).write_bytes(b"workbook")
+    (data / "result" / runtime_paths.RESULT_FILENAME).write_bytes(b"csv")
     (data / runtime_paths.STATE_FILENAME).write_text('{"accepted_sources": []}', encoding="utf-8")
 
 
@@ -70,7 +70,7 @@ def test_migrates_all_confirmed_categories_and_is_idempotent(tmp_path, user_data
     with sqlite3.connect(paths.database) as connection:
         assert connection.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
         assert connection.execute("SELECT value FROM sample").fetchone()[0] == "preserved"
-    assert paths.result.read_bytes() == b"workbook"
+    assert paths.result.read_bytes() == b"csv"
     assert paths.state.read_text(encoding="utf-8") == '{"accepted_sources": []}'
     assert paths.log.read_text(encoding="utf-8") == "legacy log"
     assert (paths.log.parent / f"{runtime_paths.LOG_FILENAME}.1").read_text(encoding="utf-8") == "rotated"

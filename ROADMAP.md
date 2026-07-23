@@ -21,7 +21,7 @@
 | M.6 | Atomic cumulative Excel publication | ✅ Completed | Deterministic `Auctions` worksheet generated from authoritative storage. | Existing rows are preserved, new unique rows appear once, types/widths/order are tested, and failed publication preserves the last valid workbook. |
 | M.7 | Minimal Mini UI foundation | ✅ Completed | Focused PySide6 window without monitoring dashboard behavior. | Start/end date controls, truthful state model, Start/Cancel/Open Result actions, and responsive worker signaling are tested; merged to `main`. |
 | M.8 | Managed PRISMA background session | ✅ Completed | Mini-owned Playwright lifecycle with an explicit headless-first policy and no unverified visible fallback. | Startup, readiness, authentication-required, timeout, closure, cancellation, one bounded transient retry, and deterministic cleanup are covered without live access; merged to `main`. |
-| M.9 | Excel-to-CSV contract adaptation | 🟡 In progress | Adapt the historical M.4-M.6 11-column Excel contracts and publisher to the authoritative cumulative 12-column CSV, including Auction Premium. | UTF-8, semicolon delimiter, dot decimal separator, exact 12-column order, authoritative blank-preserving mapping, cumulative atomic publication, and regression tests pass. |
+| M.9 | Excel-to-CSV contract adaptation | ✅ Completed | Adapt the historical M.4-M.6 11-column Excel contracts and publisher to the authoritative cumulative 12-column CSV, including Auction Premium. | UTF-8, semicolon delimiter, dot decimal separator, exact 12-column order, authoritative blank-preserving mapping, cumulative atomic publication, and regression tests pass. |
 | M.10 | Automated PRISMA date filtering | ⛔ Blocked | Mini applies only the selected `Start of Auction` date range; PRISMA Capacity automation is prohibited. | Real DOM evidence confirms date-entry, Apply, and applied-range behavior; changed/unavailable DOM failures are typed; deterministic adapter tests pass. |
 | M.11 | Automatic CSV download | ⬜ Planned | Verified download to an application-controlled temporary location. | Missing, partial, empty, wrong-contract, cancellation, timeout, and retry scenarios are covered; requested range is audited. |
 | M.12 | Integrated transformation workflow | ⬜ Planned | Download, validation, normalization, authoritative enrichment, storage, audit, and CSV publication operate as one workflow. | Every row is accounted for; failure is atomic; exact retry is unchanged; integrated tests pass. |
@@ -32,6 +32,16 @@
 | M.17 | Release readiness | ⬜ Planned | Versioned release archive, checksum, release notes, and final checklist. | Automated and required manual checks are recorded as passed; publication requires explicit approval. |
 
 ## Completed increments
+
+### M.9 — Excel-to-CSV contract adaptation
+
+M.9 adds the optional Auction Premium domain and SQLite field, upgrades existing
+M.5/M.6 databases in place with blank historical premium, permits unresolved
+authoritative Market/Storage values to remain blank, and replaces the active
+Mini Excel publisher with deterministic atomic cumulative CSV publication.
+The runtime result is `prisma_function_mini.csv` with UTF-8 encoding, semicolon
+delimiters, dot-decimal text, exact 12-column order, and unchanged files on
+equivalent retries.
 
 ### M.5 — Stable deduplication and cumulative storage
 
@@ -65,11 +75,11 @@ not retroactively relabeled as CSV implementation.
 
 ## Next recommended increment
 
-Complete **M.9 — Excel-to-CSV contract adaptation**. Then capture the remaining
-sanitized authoritative PRISMA DOM evidence for M.10. Automatic download remains
-M.11, integrated processing remains M.12, and monitoring removal remains M.14.
+Capture the remaining sanitized authoritative PRISMA DOM evidence for M.10.
+Automatic download remains M.11, integrated processing remains M.12, and
+monitoring removal remains M.14.
 
-## Current increment
+## Current contract
 
 ### M.9 — Excel-to-CSV contract adaptation
 
