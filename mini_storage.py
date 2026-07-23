@@ -151,6 +151,14 @@ class MiniAuctionStorage:
                 )""",
             ):
                 connection.execute(statement)
+            columns = {
+                row["name"] for row in connection.execute("PRAGMA table_info(mini_auctions)")
+            }
+            if "auction_premium_eur_mwh_h" not in columns:
+                connection.execute(
+                    "ALTER TABLE mini_auctions "
+                    "ADD COLUMN auction_premium_eur_mwh_h TEXT"
+                )
 
     def store(self, request: SourceImportRequest,
               records: Iterable[NormalizedAuctionRecord], *,
@@ -299,8 +307,9 @@ class MiniAuctionStorage:
             auction_id, network_point_id, auction_date, exit_market_or_storage,
             entry_market_or_storage, capacity_type, network_point, product_type,
             flow_start, flow_end, booked_capacity_kwh_h, duration_hours,
-            auction_tariff_eur_mwh_h, source_sha256, accumulated_at_utc
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            auction_tariff_eur_mwh_h, source_sha256, accumulated_at_utc,
+            auction_premium_eur_mwh_h
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """
 
     @staticmethod
@@ -313,6 +322,8 @@ class MiniAuctionStorage:
             record.flow_start.isoformat(), record.flow_end.isoformat(),
             str(record.booked_capacity_kwh_h), str(record.duration_hours),
             str(record.auction_tariff_eur_mwh_h), source_sha256, accumulated_at.isoformat(),
+            (None if record.auction_premium_eur_mwh_h is None
+             else str(record.auction_premium_eur_mwh_h)),
         )
 
     @staticmethod
@@ -329,6 +340,10 @@ class MiniAuctionStorage:
             booked_capacity_kwh_h=Decimal(row["booked_capacity_kwh_h"]),
             duration_hours=Decimal(row["duration_hours"]),
             auction_tariff_eur_mwh_h=Decimal(row["auction_tariff_eur_mwh_h"]),
+            auction_premium_eur_mwh_h=(
+                None if row["auction_premium_eur_mwh_h"] is None
+                else Decimal(row["auction_premium_eur_mwh_h"])
+            ),
         )
 
     @staticmethod

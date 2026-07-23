@@ -120,6 +120,13 @@ def test_pyinstaller_is_a_pinned_dependency():
     assert any(line.lower().startswith("pyinstaller==") for line in requirements)
 
 
+def test_active_mini_output_does_not_depend_on_openpyxl_or_xlsx():
+    spec = SPEC.read_text(encoding="utf-8").lower()
+    assert "mini_workbook" not in spec
+    assert not (ROOT / "mini_workbook.py").exists()
+    assert "from openpyxl" not in (ROOT / "mini_csv.py").read_text(encoding="utf-8")
+
+
 def test_build_script_invokes_pyinstaller_with_spec():
     content = BUILD_SCRIPT.read_text(encoding="utf-8").lower()
 

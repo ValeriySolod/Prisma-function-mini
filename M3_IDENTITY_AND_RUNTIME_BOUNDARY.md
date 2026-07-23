@@ -27,18 +27,22 @@ All production runtime writes belong below
 ```text
 %LOCALAPPDATA%\PrismaFunctionMini\
   data\prisma_function_mini.db
-  data\result\prisma_function_mini.xlsx
+  data\result\prisma_function_mini.csv
   state\prisma_function_mini_state.json
   logs\prisma-function-mini.log
   temporary-downloads\
 ```
 
-SQLite sidecars, rotated logs, staged workbook files, migration locks, and future
+SQLite sidecars, rotated logs, staged CSV files, migration locks, and future
 partial downloads must remain beside their corresponding Mini-owned target or
 inside the Mini root. Source, package, and installation directories are not
-writable runtime targets. M.10 will define temporary-download file lifecycle,
+writable runtime targets. M.11 will define temporary-download file lifecycle,
 partial-file naming, validation, and cleanup; M.3 establishes only its directory
 boundary.
+
+M.3 originally established an `.xlsx` result at this location. M.9 changes the
+active Mini result contract and path to the cumulative `.csv` shown above; the
+historical M.3-M.6 Excel deliverables remain unchanged in the roadmap.
 
 ## 3. Historical PrismaFunction data decision
 

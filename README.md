@@ -17,6 +17,11 @@ and do not create duplicates on exact retries. Market and Storage enrichment is
 accepted only from the exact entries in `MARKET_STORAGE_MAPPING.md`; unresolved
 values remain blank and are never inferred.
 
+The active result path is
+`%LOCALAPPDATA%\PrismaFunctionMini\data\result\prisma_function_mini.csv`.
+Existing M.5/M.6 Mini databases are upgraded in place by adding the optional
+premium column; their existing rows remain readable with a blank premium.
+
 Mini selectively reuses verified parsing, reference, transaction, browser,
 runtime-path, and packaging techniques from the legacy Prisma Function product
 where they satisfy Mini contracts. Scheduler, notifications, monitoring CSV,
@@ -44,11 +49,11 @@ separator, and has this exact 12-column order:
 
 ## Implementation status
 
-Roadmap increments M.1 through M.8 are historical completed implementation,
-including the 11-column Excel publisher delivered by M.4-M.6. M.9 adapts those
-contracts to the revised 12-column cumulative CSV output. M.10 owns PRISMA date
-filtering and remains blocked on authoritative Apply-action and applied-range
-evidence. Automatic download remains M.11.
+Roadmap increments M.1 through M.9 are completed implementation. M.4-M.6 remain
+the historical 11-column Excel increments; M.9 adapts their active contracts to
+the revised 12-column cumulative CSV output. M.10 owns PRISMA date filtering and
+remains blocked on authoritative Apply-action and applied-range evidence.
+Automatic download remains M.11.
 
 ## Development and tests
 

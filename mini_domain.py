@@ -1,7 +1,7 @@
 """Immutable, persistence-independent contracts for Prisma Function Mini.
 
 The values in this module are the boundary between a validated PRISMA export
-and the later storage/workbook increments.  No browser, Qt, SQLite, or Excel
+and the later storage/output increments.  No browser, Qt, SQLite, or file
 behavior belongs here.
 """
 
@@ -16,7 +16,6 @@ from pathlib import Path
 from typing import Iterable
 
 
-WORKSHEET_NAME = "Auctions"
 OUTPUT_COLUMNS = (
     "Auction Date",
     "Exit Market / Storage",
@@ -29,6 +28,7 @@ OUTPUT_COLUMNS = (
     "Booked Capacity (kWh/h)",
     "Duration (hours)",
     "Auction Tariff (EUR/MWh/h)",
+    "Auction Premium (EUR/MWh/h)",
 )
 MIN_BOOKED_CAPACITY_KWH_H = Decimal("1000")
 _SHA256 = re.compile(r"[0-9a-f]{64}\Z")
@@ -170,6 +170,7 @@ class NormalizedAuctionRecord:
     booked_capacity_kwh_h: Decimal
     duration_hours: Decimal
     auction_tariff_eur_mwh_h: Decimal
+    auction_premium_eur_mwh_h: Decimal | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "auction_id", _text(self.auction_id, "auction_id"))
@@ -184,13 +185,6 @@ class NormalizedAuctionRecord:
         entry_value = _text(self.entry_market_or_storage, "entry_market_or_storage", optional=True)
         object.__setattr__(self, "exit_market_or_storage", exit_value)
         object.__setattr__(self, "entry_market_or_storage", entry_value)
-        required = {
-            CapacityType.ENTRY: (entry_value,),
-            CapacityType.EXIT: (exit_value,),
-            CapacityType.BUNDLE: (exit_value, entry_value),
-        }[self.capacity_type]
-        if any(value is None for value in required):
-            raise ValueError("Capacity type requires its authoritative Market / Storage side value.")
         start = _local_minute(self.flow_start, "flow_start")
         end = _local_minute(self.flow_end, "flow_end")
         if end <= start:
@@ -201,6 +195,10 @@ class NormalizedAuctionRecord:
         object.__setattr__(self, "flow_end", end)
         capacity = _decimal(self.booked_capacity_kwh_h, "booked_capacity_kwh_h", minimum=MIN_BOOKED_CAPACITY_KWH_H)
         tariff = _decimal(self.auction_tariff_eur_mwh_h, "auction_tariff_eur_mwh_h")
+        premium = (
+            None if self.auction_premium_eur_mwh_h is None
+            else _decimal(self.auction_premium_eur_mwh_h, "auction_premium_eur_mwh_h")
+        )
         duration = Decimal(str((end - start).total_seconds())) / Decimal("3600")
         supplied_duration = _decimal(self.duration_hours, "duration_hours")
         if supplied_duration != duration.normalize():
@@ -208,6 +206,7 @@ class NormalizedAuctionRecord:
         object.__setattr__(self, "booked_capacity_kwh_h", capacity)
         object.__setattr__(self, "duration_hours", duration.normalize())
         object.__setattr__(self, "auction_tariff_eur_mwh_h", tariff)
+        object.__setattr__(self, "auction_premium_eur_mwh_h", premium)
 
     @property
     def duplicate_key(self) -> AuctionDuplicateKey:
@@ -230,6 +229,7 @@ class MiniOutputRow:
     booked_capacity_kwh_h: Decimal
     duration_hours: Decimal
     auction_tariff_eur_mwh_h: Decimal
+    auction_premium_eur_mwh_h: Decimal | None
 
     @classmethod
     def from_record(cls, record: NormalizedAuctionRecord) -> "MiniOutputRow":
@@ -241,6 +241,7 @@ class MiniOutputRow:
             record.network_point, record.product_type.value, record.flow_start,
             record.flow_end, record.booked_capacity_kwh_h, record.duration_hours,
             record.auction_tariff_eur_mwh_h,
+            record.auction_premium_eur_mwh_h,
         )
 
     def values(self) -> tuple[object, ...]:
@@ -353,17 +354,37 @@ def classify_duplicates(
 
 
 def normalize_capacity(value: object, unit: str) -> Decimal:
-    factors = {"kWh/h": Decimal("1"), "MWh/h": Decimal("1000"), "kWh/d": Decimal("0.04166666666666666666666666667")}
+    factors = {"kWh/h": Decimal("1"), "kWh/d": Decimal("1") / Decimal("24")}
     if unit not in factors:
         raise ValueError("Unsupported capacity unit.")
     return (_decimal(value, "capacity") * factors[unit]).normalize()
 
 
-def normalize_tariff(value: object, unit: str) -> Decimal:
-    factors = {"EUR/MWh/h": Decimal("1"), "cent/kWh/h/Runtime": Decimal("10"), "cent/kWh/d/Runtime": Decimal("0.4166666666666666666666666667")}
-    if unit not in factors:
+def normalize_tariff(value: object, unit: str, duration_hours: object) -> Decimal:
+    """Normalize an approved nonblank tariff or premium to EUR/MWh/h."""
+
+    duration = _decimal(duration_hours, "duration_hours", minimum=Decimal("0"))
+    if duration <= 0:
+        raise ValueError("duration_hours must be positive.")
+    runtime_h = {
+        "cent/kWh/h/Runtime", "CHF/100/kWh/h/Runtime",
+        "halér/kWh/h/Runtime", "pence/kWh/h/Runtime",
+    }
+    runtime_d = {"cent/kWh/d/Runtime", "pence/kWh/d/Runtime"}
+    per_day_h = {"cent/kWh/h/d", "pence/kWh/h/d"}
+    per_day_d = {"cent/kWh/d/d", "pence/kWh/d/d"}
+    source = _decimal(value, "tariff")
+    if unit in runtime_h:
+        factor = Decimal("10") / duration
+    elif unit in runtime_d:
+        factor = Decimal("240") / duration
+    elif unit in per_day_h:
+        factor = Decimal("10") / Decimal("24")
+    elif unit in per_day_d:
+        factor = Decimal("10")
+    else:
         raise ValueError("Unsupported tariff unit.")
-    return (_decimal(value, "tariff") * factors[unit]).normalize()
+    return (source * factor).normalize()
 
 
 def normalize_product(value: str) -> ProductType:

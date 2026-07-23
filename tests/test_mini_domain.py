@@ -6,7 +6,6 @@ import pytest
 
 from mini_domain import (
     OUTPUT_COLUMNS,
-    WORKSHEET_NAME,
     AuctionDuplicateKey,
     CapacityType,
     HistoryRecord,
@@ -45,6 +44,7 @@ def record(**changes) -> NormalizedAuctionRecord:
         "booked_capacity_kwh_h": "1000.00",
         "duration_hours": "24.0",
         "auction_tariff_eur_mwh_h": "1.2500",
+        "auction_premium_eur_mwh_h": None,
     }
     values.update(changes)
     return NormalizedAuctionRecord(**values)
@@ -107,24 +107,16 @@ def test_required_identity_and_display_text_reject_blank(field):
         (CapacityType.BUNDLE, "Exit", "Entry"),
     ],
 )
-def test_capacity_type_requires_only_authoritative_sides(capacity_type, exit_value, entry_value):
+def test_capacity_type_allows_authoritative_sides(capacity_type, exit_value, entry_value):
     item = record(capacity_type=capacity_type, exit_market_or_storage=exit_value,
                   entry_market_or_storage=entry_value)
     assert item.capacity_type is capacity_type
 
 
-@pytest.mark.parametrize(
-    "changes",
-    [
-        {"capacity_type": CapacityType.ENTRY, "entry_market_or_storage": None},
-        {"capacity_type": CapacityType.EXIT, "exit_market_or_storage": None},
-        {"capacity_type": CapacityType.BUNDLE, "exit_market_or_storage": None},
-        {"capacity_type": CapacityType.BUNDLE, "entry_market_or_storage": None},
-    ],
-)
-def test_missing_required_authoritative_side_fails_closed(changes):
-    with pytest.raises(ValueError, match="authoritative"):
-        record(**changes)
+def test_unresolved_market_and_storage_values_remain_blank():
+    item = record(exit_market_or_storage=None, entry_market_or_storage=" ")
+    assert item.exit_market_or_storage is None
+    assert item.entry_market_or_storage is None
 
 
 @pytest.mark.parametrize(
@@ -137,6 +129,7 @@ def test_missing_required_authoritative_side_fails_closed(changes):
         ({"duration_hours": 23}, "exact"),
         ({"booked_capacity_kwh_h": "999.999"}, "at least 1000"),
         ({"auction_tariff_eur_mwh_h": "NaN"}, "finite"),
+        ({"auction_premium_eur_mwh_h": "NaN"}, "finite"),
         ({"capacity_type": "Bundle"}, "CapacityType"),
         ({"product_type": "Day Ahead"}, "ProductType"),
     ],
@@ -147,19 +140,20 @@ def test_normalized_record_validation_constraints(changes, message):
 
 
 def test_authoritative_output_contract_order_types_and_no_identity_columns():
-    assert WORKSHEET_NAME == "Auctions"
     assert OUTPUT_COLUMNS == (
         "Auction Date", "Exit Market / Storage", "Entry Market / Storage",
         "Capacity Type", "Network Point", "Product Type", "Flow Start",
         "Flow End", "Booked Capacity (kWh/h)", "Duration (hours)",
         "Auction Tariff (EUR/MWh/h)",
+        "Auction Premium (EUR/MWh/h)",
     )
     output = MiniOutputRow.from_record(record())
-    assert len(output.values()) == len(OUTPUT_COLUMNS) == 11
+    assert len(output.values()) == len(OUTPUT_COLUMNS) == 12
     assert output.values() == (
         date(2026, 7, 20), "Exit Market", "Entry Storage", "Bundle",
         "Test Point", "Day Ahead", datetime(2026, 7, 21, 6),
         datetime(2026, 7, 22, 6), Decimal("1E+3"), Decimal("24"), Decimal("1.25"),
+        None,
     )
 
 
@@ -167,7 +161,6 @@ def test_authoritative_output_contract_order_types_and_no_identity_columns():
     ("value", "unit", "expected"),
     [
         ("1000", "kWh/h", Decimal("1E+3")),
-        ("1", "MWh/h", Decimal("1E+3")),
         ("24000", "kWh/d", Decimal("1E+3")),
     ],
 )
@@ -176,25 +169,27 @@ def test_supported_capacity_normalization(value, unit, expected):
 
 
 @pytest.mark.parametrize(
-    ("value", "unit", "expected"),
+    ("value", "unit", "duration", "expected"),
     [
-        ("1.25", "EUR/MWh/h", Decimal("1.25")),
-        ("1", "cent/kWh/h/Runtime", Decimal("1E+1")),
-        ("24", "cent/kWh/d/Runtime", Decimal("1E+1")),
+        ("24", "cent/kWh/h/Runtime", "24", Decimal("1E+1")),
+        ("1", "cent/kWh/d/Runtime", "24", Decimal("1E+1")),
+        ("24", "pence/kWh/h/d", "48", Decimal("1E+1")),
+        ("1", "cent/kWh/d/d", "24", Decimal("1E+1")),
     ],
 )
-def test_supported_tariff_normalization(value, unit, expected):
-    assert normalize_tariff(value, unit) == expected
+def test_supported_tariff_normalization(value, unit, duration, expected):
+    assert normalize_tariff(value, unit, duration) == expected
 
 
-@pytest.mark.parametrize("normalizer", [normalize_capacity, normalize_tariff])
-def test_unit_normalizers_reject_unsupported_nonfinite_and_negative(normalizer):
+def test_unit_normalizers_reject_unsupported_nonfinite_and_negative():
     with pytest.raises(ValueError, match="Unsupported"):
-        normalizer("1", "therms")
+        normalize_capacity("1", "therms")
+    with pytest.raises(ValueError, match="Unsupported"):
+        normalize_tariff("1", "therms", "24")
     with pytest.raises(ValueError, match="finite"):
-        normalizer("Infinity", next(iter({"kWh/h"} if normalizer is normalize_capacity else {"EUR/MWh/h"})))
+        normalize_capacity("Infinity", "kWh/h")
     with pytest.raises(ValueError, match="finite"):
-        normalizer("-1", next(iter({"kWh/h"} if normalizer is normalize_capacity else {"EUR/MWh/h"})))
+        normalize_tariff("-1", "cent/kWh/h/Runtime", "24")
 
 
 @pytest.mark.parametrize(
@@ -225,6 +220,15 @@ def test_same_key_with_changed_payload_fails_closed():
     conflict = record(auction_tariff_eur_mwh_h="2")
     with pytest.raises(ValueError, match="conflicts"):
         classify_duplicates([existing], [conflict])
+
+
+def test_optional_premium_is_payload_but_not_identity():
+    original = record()
+    premium = record(auction_premium_eur_mwh_h=Decimal("0.125"))
+    assert premium.auction_premium_eur_mwh_h == Decimal("0.125")
+    assert premium.duplicate_key == original.duplicate_key
+    with pytest.raises(ValueError, match="conflicts"):
+        classify_duplicates([original], [premium])
 
 
 def test_key_changes_only_for_one_of_five_stable_identity_fields():

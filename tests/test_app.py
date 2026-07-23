@@ -29,7 +29,7 @@ def paths(tmp_path):
     return RuntimePaths(
         root=root,
         database=root / "data/test.db",
-        result=root / "data/result/test.xlsx",
+        result=root / "data/result/test.csv",
         state=root / "state/test.json",
         log=root / "logs/test.log",
         temporary_downloads=root / "temporary-downloads",
@@ -166,7 +166,7 @@ def test_stale_worker_messages_cannot_overwrite_current_state(window):
     assert window.state is MiniUiState.IDLE
 
 
-def test_open_result_uses_existing_runtime_workbook(window, monkeypatch, paths):
+def test_open_result_uses_existing_runtime_csv(window, monkeypatch, paths):
     paths.result.parent.mkdir(parents=True)
     paths.result.write_bytes(b"result")
     window._render_state()

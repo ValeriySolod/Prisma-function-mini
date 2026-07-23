@@ -20,6 +20,7 @@ FORBIDDEN_PARTS = {
     ".venv", "tests", "__pycache__", ".pytest_cache", "temporary-downloads"
 }
 RUNTIME_OUTPUT_NAMES = {
+    "prisma_function_mini.csv",
     "prisma_function_mini.xlsx",
     "prisma_function_mini_state.json",
 }
