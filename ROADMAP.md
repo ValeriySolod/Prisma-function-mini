@@ -20,8 +20,8 @@
 | M.5 | Stable deduplication and cumulative storage | ✅ Completed | Mini-specific transactional SQLite storage and operation audit. | Exact retry and overlapping ranges are idempotent; conflicts fail closed; existing history survives restart. |
 | M.6 | Atomic cumulative Excel publication | ✅ Completed | Deterministic `Auctions` worksheet generated from authoritative storage. | Existing rows are preserved, new unique rows appear once, types/widths/order are tested, and failed publication preserves the last valid workbook. |
 | M.7 | Minimal Mini UI foundation | ✅ Completed | Focused PySide6 window without monitoring dashboard behavior. | Start/end date controls, truthful state model, Start/Cancel/Open Result actions, and responsive worker signaling are tested; merged to `main`. |
-| M.8 | Managed PRISMA background session | 🟡 In progress | Mini-owned Playwright lifecycle with an explicit headless-first policy and no unverified visible fallback. | Startup, readiness, authentication-required, timeout, closure, cancellation, one bounded transient retry, and deterministic cleanup are covered without live access. |
-| M.9 | Automated PRISMA date filtering | ⬜ Planned | Mini applies the selected date range and approved capacity filter. | Real DOM evidence confirms filter behavior; changed/unavailable DOM failures are typed; deterministic adapter tests pass. |
+| M.8 | Managed PRISMA background session | ✅ Completed | Mini-owned Playwright lifecycle with an explicit headless-first policy and no unverified visible fallback. | Startup, readiness, authentication-required, timeout, closure, cancellation, one bounded transient retry, and deterministic cleanup are covered without live access; merged to `main`. |
+| M.9 | Automated PRISMA date filtering | ⛔ Blocked | Mini applies only the selected `Start of Auction` date range; PRISMA Capacity automation is prohibited. | Real DOM evidence confirms date-entry, Apply, and applied-range behavior; changed/unavailable DOM failures are typed; deterministic adapter tests pass. |
 | M.10 | Automatic CSV download | ⬜ Planned | Verified download to an application-controlled temporary location. | Missing, partial, empty, wrong-contract, cancellation, timeout, and retry scenarios are covered; requested range is audited. |
 | M.11 | Integrated transformation workflow | ⬜ Planned | Download, validation, normalization, authoritative enrichment, storage, audit, and workbook publication operate as one workflow. | Every row is accounted for; failure is atomic; exact retry is unchanged; integrated tests pass. |
 | M.12 | Daily cumulative operation readiness | ⬜ Planned | User workflow supports safe daily updates and overlapping ranges. | Multiple-day and repeated-run scenarios preserve history without duplicates; restart recovery is validated. |
@@ -60,24 +60,27 @@ M.6 was reviewed and merged into `main`.
 
 ## Next recommended increment
 
-After M.8 is reviewed and merged into `main`, execute **M.9 — Automated PRISMA
-date filtering** next. CSV download and integrated processing remain M.10 and
-M.11. Monitoring removal remains M.13.
+Capture the sanitized authoritative PRISMA DOM evidence listed under M.9, then
+resume **M.9 — Automated PRISMA date filtering**. CSV download and integrated
+processing remain M.10 and M.11. Monitoring removal remains M.13.
 
 ## Current increment
 
-### M.8 — Managed PRISMA background session
+### M.9 — Automated PRISMA date filtering
 
-The M.8 feature branch adds a Mini-specific, synchronous Playwright session
-boundary intended to run inside the existing M.7 non-GUI worker. It owns
-browser, context, page, listeners, and Playwright cleanup; detects readiness and
-authentication requirements; exposes typed startup, timeout, lifecycle, and
-cancellation failures; and retries transient startup/readiness failure once.
+M.8 was reviewed and merged into `main` by merge commit `d1e6624`. The sanitized
+M.9 capture confirms the start-date and end-date controls, their displayed
+values, and their PRISMA-provided ISO values. It does not establish the accepted
+date-entry interaction, Apply action, or observable successfully applied range,
+so production automation cannot safely cross the Apply boundary yet.
 
-Headless mode is the explicit default. There is no automatic visible fallback
-until sanitized real-PRISMA evidence establishes whether headless operation is
-reliable. M.8 does not apply filters, download files, or integrate processing.
-M.8 remains in progress until review and merge to `main`.
+By authoritative product decision, Mini must never automate a PRISMA Capacity
+filter. The booked-capacity rule is applied locally during CSV processing only
+after the authoritative CSV field and its semantics are explicitly verified.
+
+The exact required **Copy outerHTML** captures and interaction observations are
+listed in `evidence/m9/README.md`. CSV-download evidence remains M.10. Live
+PRISMA interaction and headless/background behavior remain unvalidated.
 
 ## Maintenance rules
 

@@ -14,7 +14,7 @@ The application must let the user choose a date range, retrieve the correspondin
 - start-date and end-date selection in Mini;
 - validation of the selected date range;
 - managed PRISMA browser lifecycle;
-- automatic application of PRISMA date and capacity filters;
+- automatic application of the PRISMA `Start of Auction` date range;
 - automatic download of the official CSV export;
 - CSV contract detection and validation;
 - filtering and unit normalization;
@@ -47,9 +47,8 @@ Unless separately approved, Mini does not include:
 3. The application validates that the range is complete, ordered, and supported.
 4. The user starts processing.
 5. Mini opens an application-owned PRISMA session in the background.
-6. Mini navigates to the auction export view and applies:
-   - the selected date range;
-   - the approved booked-capacity threshold.
+6. Mini navigates to the auction export view and applies only the selected
+   `Start of Auction` date range. Mini does not automate a PRISMA Capacity filter.
 7. Mini downloads the official CSV export to an application-controlled temporary location.
 8. Mini verifies that the file is a supported PRISMA export and corresponds to the requested operation.
 9. Mini transforms qualifying rows, enriches only evidenced references, and validates every output record.
@@ -89,7 +88,7 @@ listeners, and Playwright driver before returning or retrying.
 
 - Mini must navigate to the approved PRISMA auction export page.
 - Mini must apply the selected dates automatically.
-- Mini must apply the established relevant-capacity rule: booked capacity of at least 1000 kWh/h after supported unit normalization.
+- Mini must not configure or depend on a PRISMA Capacity filter.
 - Mini must initiate and await the official CSV download.
 - The download must use an application-controlled temporary path.
 - Mini must reject missing, empty, partial, unexpected, or unsupported files.
@@ -98,6 +97,9 @@ listeners, and Playwright driver before returning or retrying.
 ### FR-004 — Source validation and transformation
 
 - Every source row must be classified as processed, duplicate, filtered, or rejected.
+- The booked-capacity rule must be applied locally from an explicitly verified
+  authoritative CSV field and semantics; column names or meanings must not be inferred.
+- Only auctions with booked capacity of at least 1000 kWh/h after supported unit normalization may be included.
 - Supported capacity and tariff units must be normalized explicitly.
 - Dates and timestamps must be parsed strictly.
 - Product types must be normalized only to the approved values.

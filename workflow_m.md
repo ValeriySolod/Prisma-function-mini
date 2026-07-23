@@ -14,7 +14,10 @@ Every increment must remain consistent with these requirements:
 2. The user selects the source dates in Prisma Function Mini.
 3. PRISMA must run through an application-owned managed browser session. Visible browser interaction should be avoided where the PRISMA workflow technically permits it.
 4. The application downloads the official PRISMA CSV export automatically.
-5. Only auctions with booked capacity of at least 1000 kWh/h after supported unit normalization are included.
+5. Mini must not automate a PRISMA Capacity filter. Only auctions with booked
+   capacity of at least 1000 kWh/h after supported unit normalization are
+   included by local CSV processing, using only an explicitly verified
+   authoritative CSV field and semantics.
 6. The output workbook must expose:
    - auction date;
    - exit market or storage;
@@ -136,10 +139,11 @@ When the code is ready, Codex may provide commands for the user to review, stage
 
 1. Use the existing Playwright-based managed-browser boundary where suitable.
 2. Date filters are owned by Prisma Function Mini, not manually entered in PRISMA by the user.
-3. Automatic CSV download must verify that the downloaded file belongs to the requested date range and expected PRISMA export contract.
-4. Browser startup, authentication-required state, timeout, unavailable page, changed DOM, failed download, cancellation, manual closure, retry, and shutdown must have typed and testable outcomes.
-5. Background or headless execution may be used only after real PRISMA behavior is validated. If PRISMA requires a visible browser, minimize or hide it safely without weakening reliability.
-6. Never bypass authentication, access controls, anti-bot controls, or PRISMA terms.
+3. Browser automation must not configure or depend on a PRISMA Capacity filter.
+4. Automatic CSV download must verify that the downloaded file belongs to the requested date range and expected PRISMA export contract.
+5. Browser startup, authentication-required state, timeout, unavailable page, changed DOM, failed download, cancellation, manual closure, retry, and shutdown must have typed and testable outcomes.
+6. Background or headless execution may be used only after real PRISMA behavior is validated. If PRISMA requires a visible browser, minimize or hide it safely without weakening reliability.
+7. Never bypass authentication, access controls, anti-bot controls, or PRISMA terms.
 
 ## 9. Output contract
 
@@ -179,7 +183,8 @@ The first Mini increments should establish, in order:
 2. Approved Excel output contract and deduplication identity.
 3. Minimal Mini UI with date-range selection and truthful state management.
 4. Managed PRISMA background-session foundation.
-5. Date filter automation and verified CSV download.
+5. `Start of Auction` date-range automation and verified CSV download, with
+   booked-capacity filtering performed locally from explicitly verified CSV semantics.
 6. Transformation into the approved cumulative workbook.
 7. End-to-end recovery, retry, cancellation, and data-integrity validation.
 8. Windows packaging and clean-machine validation.

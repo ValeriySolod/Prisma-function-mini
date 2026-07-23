@@ -6,6 +6,11 @@ date in Mini; the application-owned background browser opens PRISMA, applies the
 requested dates, downloads the official CSV automatically, and converts
 qualifying auctions to the authoritative Excel mapping.
 
+Browser automation applies only the PRISMA `Start of Auction` date range. Mini
+does not automate a PRISMA Capacity filter. The booked-capacity threshold is
+applied locally during CSV processing only from an explicitly verified
+authoritative CSV field and semantics.
+
 The result is a cumulative `Auctions` workbook. Daily and overlapping imports
 preserve existing historical rows, append only new stable auction identities,
 and do not create duplicates on exact retries. Market and Storage enrichment is
@@ -36,12 +41,10 @@ The worksheet is named `Auctions` and uses this exact column order:
 
 ## Implementation status
 
-Roadmap increments M.1 through M.6 are implemented. The M.7 branch adds the
-minimal Mini window with date validation, truthful processing states,
-Start/Cancel/Open Result actions, responsive worker signals, and cooperative
-shutdown. Its workflow boundary intentionally reports that processing is not
-available yet; browser automation, automatic download, and integrated
-processing remain later increments.
+Roadmap increments M.1 through M.8 are implemented. M.9 has confirmed DOM
+evidence for the two `Start of Auction` date controls but remains blocked on
+authoritative Apply-action and applied-range evidence. Automatic download and
+integrated processing remain M.10 and M.11.
 
 ## Development and tests
 
