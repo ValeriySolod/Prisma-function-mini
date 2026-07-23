@@ -4,7 +4,7 @@
 
 Prisma Function Mini is a single-user Windows desktop application for daily collection and transformation of official PRISMA gas-capacity auction data.
 
-The application must let the user choose a date range, retrieve the corresponding PRISMA CSV export through a managed background browser session, transform qualifying auction rows into an approved Excel mapping, and cumulatively preserve historical results without duplicates.
+The application must let the user choose a date range, retrieve the corresponding PRISMA CSV export through a managed background browser session, transform qualifying auction rows into the approved cumulative CSV contract, and preserve historical results without duplicates.
 
 ## 2. Scope
 
@@ -19,10 +19,10 @@ The application must let the user choose a date range, retrieve the correspondin
 - CSV contract detection and validation;
 - filtering and unit normalization;
 - authoritative Market/Storage enrichment;
-- transformation into the approved workbook columns;
+- transformation into the approved 12-column CSV;
 - cumulative local persistence;
 - deterministic duplicate prevention;
-- atomic Excel publication;
+- atomic cumulative CSV publication;
 - progress, cancellation, retry, error reporting, and safe shutdown;
 - Windows packaging and clean-machine validation.
 
@@ -53,7 +53,7 @@ Unless separately approved, Mini does not include:
 8. Mini verifies that the file is a supported PRISMA export and corresponds to the requested operation.
 9. Mini transforms qualifying rows, enriches only evidenced references, and validates every output record.
 10. Mini stores new unique records and audits duplicates and rejected rows.
-11. Mini publishes the cumulative Excel workbook atomically.
+11. Mini publishes the cumulative CSV atomically.
 12. Mini shows a truthful summary and allows the user to open the result.
 
 ## 4. Functional requirements
@@ -101,14 +101,16 @@ listeners, and Playwright driver before returning or retrying.
   authoritative CSV field and semantics; column names or meanings must not be inferred.
 - Only auctions with booked capacity of at least 1000 kWh/h after supported unit normalization may be included.
 - Supported capacity and tariff units must be normalized explicitly.
+- Supported premium units must be normalized explicitly.
 - Dates and timestamps must be parsed strictly.
 - Product types must be normalized only to the approved values.
-- Market/Storage enrichment must use the immutable authoritative reference catalog.
+- Market/Storage enrichment must use only `MARKET_STORAGE_MAPPING.md`.
+- Unresolved Market/Storage values must remain blank; inference is prohibited.
 - Ambiguous or unsafe rows must be rejected with a stable reason code and source-row context.
 
-### FR-005 — Approved Excel mapping
+### FR-005 — Approved cumulative CSV contract
 
-The authoritative worksheet is named `Auctions`. Its columns and order are:
+The authoritative output columns and order are:
 
 | # | Column | Value |
 |---:|---|---|
@@ -123,20 +125,22 @@ The authoritative worksheet is named `Auctions`. Its columns and order are:
 | 9 | `Booked Capacity (kWh/h)` | Capacity normalized to kWh/h |
 | 10 | `Duration (hours)` | Exact duration between Flow Start and Flow End |
 | 11 | `Auction Tariff (EUR/MWh/h)` | Tariff normalized to EUR/MWh/h |
+| 12 | `Auction Premium (EUR/MWh/h)` | Premium normalized to EUR/MWh/h |
 
-Workbook rules:
+CSV rules:
 
 - headers and order are stable and covered by tests;
-- dates, timestamps, integers, decimals, and text use appropriate Excel types;
-- deterministic widths and formatting are applied;
+- encoding is UTF-8;
+- the delimiter is semicolon (`;`);
+- the dot decimal separator is used (`.`);
+- dates, timestamps, integers, and decimals use deterministic text representations;
 - output ordering is deterministic;
-- the workbook must open in Microsoft Excel;
 - publication uses a staged file and atomic replacement;
-- a failure must leave the previous valid workbook unchanged.
+- a failure must leave the previous valid CSV unchanged.
 
 ### FR-006 — Daily cumulative history
 
-- The same runtime database and workbook are updated on every successful daily run.
+- The same runtime database and CSV are updated on every successful daily run.
 - Existing records remain available.
 - New unique records are appended.
 - Runs for overlapping date ranges are supported.
@@ -160,7 +164,7 @@ Rules:
 - blank required identity fields cause row rejection;
 - identical rows with the same identity are duplicates and do not create new records;
 - conflicting rows with the same identity fail closed and are audited;
-- duplicate checking occurs before workbook publication;
+- duplicate checking occurs before CSV publication;
 - database uniqueness constraints and application validation must agree;
 - deduplication is covered for exact retries, overlapping ranges, repeated source rows, and application restart.
 
@@ -175,7 +179,7 @@ Each operation must record:
 - result status;
 - stable failure or rejection details.
 
-Database mutation and audit creation must be transactional. Interrupted workbook publication must be recoverable. A failed operation must remain retryable without corrupting historical data.
+Database mutation and audit creation must be transactional. Interrupted CSV publication must be recoverable. A failed operation must remain retryable without corrupting historical data.
 
 ### FR-009 — User interface states
 
@@ -206,7 +210,7 @@ Preferred candidates:
 - authoritative reference catalog;
 - import transformation;
 - SQLite persistence and deduplication;
-- atomic workbook publication;
+- atomic output publication;
 - runtime user-data paths and migration safety;
 - logging, packaging, and validation utilities.
 
@@ -243,7 +247,7 @@ display/product name is `Prisma Function Mini`, the executable is
 The writable runtime layout is:
 
 - database: `%LOCALAPPDATA%\PrismaFunctionMini\data\prisma_function_mini.db`;
-- workbook: `%LOCALAPPDATA%\PrismaFunctionMini\data\result\prisma_function_mini.xlsx`;
+- output CSV: `%LOCALAPPDATA%\PrismaFunctionMini\data\result\prisma_function_mini.csv`;
 - state: `%LOCALAPPDATA%\PrismaFunctionMini\state\prisma_function_mini_state.json`;
 - log: `%LOCALAPPDATA%\PrismaFunctionMini\logs\prisma-function-mini.log`;
 - temporary downloads: `%LOCALAPPDATA%\PrismaFunctionMini\temporary-downloads`.
@@ -251,8 +255,13 @@ The writable runtime layout is:
 The inherited `%LOCALAPPDATA%\PrismaFunction` root is read-only historical user
 data. Mini performs no automatic scan, copy, move, overwrite, deletion,
 rebuild, or reinterpretation of that root. Any future opt-in copy/transform
-requires the approved M.5/M.6 contracts and a separately tested migration.
+requires the approved historical M.5/M.6 contracts and a separately tested migration.
 `M3_IDENTITY_AND_RUNTIME_BOUNDARY.md` records the complete decision.
+
+M.3-M.6 historically implemented an `.xlsx` runtime target and an 11-column
+Excel publisher. M.9 owns the explicit adaptation of those completed contracts
+to the revised `.csv` target above; the historical implementation is not
+retroactively described as CSV-complete.
 
 ## 7. Acceptance baseline
 
@@ -261,7 +270,7 @@ The product baseline is accepted when a clean Windows validation demonstrates:
 - date selection in Mini;
 - reliable managed background PRISMA opening;
 - automatic date filtering and CSV download;
-- correct transformation into the approved 11-column workbook;
+- correct transformation into the approved 12-column cumulative CSV;
 - exclusion of capacity below the approved threshold;
 - correct authoritative Market/Storage enrichment;
 - daily cumulative updates;

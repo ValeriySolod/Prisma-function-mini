@@ -63,3 +63,29 @@ def test_m9_documents_prohibit_prisma_capacity_automation() -> None:
     assert "must not configure or depend on a PRISMA Capacity filter" in specification
     assert "must not automate a PRISMA Capacity filter" in workflow
     assert "explicitly verified authoritative CSV field and semantics" in evidence_readme
+
+
+def test_revised_output_and_roadmap_contracts_are_synchronized() -> None:
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    roadmap = (ROOT / "ROADMAP.md").read_text(encoding="utf-8")
+    specification = (ROOT / "TECHNICAL_SPECIFICATION.md").read_text(encoding="utf-8")
+    workflow = (ROOT / "workflow_m.md").read_text(encoding="utf-8")
+
+    for document in (readme, specification, workflow):
+        assert "Auction Premium (EUR/MWh/h)" in document
+        assert "UTF-8" in document
+        assert "semicolon" in document
+        assert "dot decimal" in document
+
+    assert "M.9 | Excel-to-CSV contract adaptation" in roadmap
+    assert "M.10 | Automated PRISMA date filtering" in roadmap
+    assert "M.11 | Automatic CSV download" in roadmap
+
+
+def test_authoritative_mapping_preserves_unresolved_values() -> None:
+    mapping = (ROOT / "MARKET_STORAGE_MAPPING.md").read_text(encoding="utf-8")
+
+    assert "| `Arnoldstein importazione (35718301)` |  | `PSV` |" in mapping
+    assert "| `VIP DK-THE (H646) (H646)` | `THE` |  |" in mapping
+    assert "must remain blank in output" in mapping
+    assert "cross-side reuse" in mapping

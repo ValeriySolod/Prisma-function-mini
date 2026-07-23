@@ -21,14 +21,15 @@
 | M.6 | Atomic cumulative Excel publication | ✅ Completed | Deterministic `Auctions` worksheet generated from authoritative storage. | Existing rows are preserved, new unique rows appear once, types/widths/order are tested, and failed publication preserves the last valid workbook. |
 | M.7 | Minimal Mini UI foundation | ✅ Completed | Focused PySide6 window without monitoring dashboard behavior. | Start/end date controls, truthful state model, Start/Cancel/Open Result actions, and responsive worker signaling are tested; merged to `main`. |
 | M.8 | Managed PRISMA background session | ✅ Completed | Mini-owned Playwright lifecycle with an explicit headless-first policy and no unverified visible fallback. | Startup, readiness, authentication-required, timeout, closure, cancellation, one bounded transient retry, and deterministic cleanup are covered without live access; merged to `main`. |
-| M.9 | Automated PRISMA date filtering | ⛔ Blocked | Mini applies only the selected `Start of Auction` date range; PRISMA Capacity automation is prohibited. | Real DOM evidence confirms date-entry, Apply, and applied-range behavior; changed/unavailable DOM failures are typed; deterministic adapter tests pass. |
-| M.10 | Automatic CSV download | ⬜ Planned | Verified download to an application-controlled temporary location. | Missing, partial, empty, wrong-contract, cancellation, timeout, and retry scenarios are covered; requested range is audited. |
-| M.11 | Integrated transformation workflow | ⬜ Planned | Download, validation, normalization, authoritative enrichment, storage, audit, and workbook publication operate as one workflow. | Every row is accounted for; failure is atomic; exact retry is unchanged; integrated tests pass. |
-| M.12 | Daily cumulative operation readiness | ⬜ Planned | User workflow supports safe daily updates and overlapping ranges. | Multiple-day and repeated-run scenarios preserve history without duplicates; restart recovery is validated. |
-| M.13 | Remove excluded monitoring functionality | ⬜ Planned | Monitoring UI, scheduler, status checks, notifications, and monitoring-only persistence are removed from the Mini product path. | Import/browser/shared utilities remain green; no monitoring controls or background monitoring processes remain. |
-| M.14 | Windows package and installer | ⬜ Planned | Mini-specific PyInstaller onedir package and per-user installer. | Structural validation passes; runtime data stays in the Mini user-data directory; no Python installation is required. |
-| M.15 | Real PRISMA and clean-Windows validation | ⬜ Planned | Recorded end-to-end validation on a standard non-administrator Windows computer. | Background session, download, data-bearing transform, Excel output, retry, overlap, restart, shutdown, installer, and uninstaller checks pass. |
-| M.16 | Release readiness | ⬜ Planned | Versioned release archive, checksum, release notes, and final checklist. | Automated and required manual checks are recorded as passed; publication requires explicit approval. |
+| M.9 | Excel-to-CSV contract adaptation | 🟡 In progress | Adapt the historical M.4-M.6 11-column Excel contracts and publisher to the authoritative cumulative 12-column CSV, including Auction Premium. | UTF-8, semicolon delimiter, dot decimal separator, exact 12-column order, authoritative blank-preserving mapping, cumulative atomic publication, and regression tests pass. |
+| M.10 | Automated PRISMA date filtering | ⛔ Blocked | Mini applies only the selected `Start of Auction` date range; PRISMA Capacity automation is prohibited. | Real DOM evidence confirms date-entry, Apply, and applied-range behavior; changed/unavailable DOM failures are typed; deterministic adapter tests pass. |
+| M.11 | Automatic CSV download | ⬜ Planned | Verified download to an application-controlled temporary location. | Missing, partial, empty, wrong-contract, cancellation, timeout, and retry scenarios are covered; requested range is audited. |
+| M.12 | Integrated transformation workflow | ⬜ Planned | Download, validation, normalization, authoritative enrichment, storage, audit, and CSV publication operate as one workflow. | Every row is accounted for; failure is atomic; exact retry is unchanged; integrated tests pass. |
+| M.13 | Daily cumulative operation readiness | ⬜ Planned | User workflow supports safe daily updates and overlapping ranges. | Multiple-day and repeated-run scenarios preserve history without duplicates; restart recovery is validated. |
+| M.14 | Remove excluded monitoring functionality | ⬜ Planned | Monitoring UI, scheduler, status checks, notifications, and monitoring-only persistence are removed from the Mini product path. | Import/browser/shared utilities remain green; no monitoring controls or background monitoring processes remain. |
+| M.15 | Windows package and installer | ⬜ Planned | Mini-specific PyInstaller onedir package and per-user installer. | Structural validation passes; runtime data stays in the Mini user-data directory; no Python installation is required. |
+| M.16 | Real PRISMA and clean-Windows validation | ⬜ Planned | Recorded end-to-end validation on a standard non-administrator Windows computer. | Background session, download, data-bearing transform, cumulative CSV output, retry, overlap, restart, shutdown, installer, and uninstaller checks pass. |
+| M.17 | Release readiness | ⬜ Planned | Versioned release archive, checksum, release notes, and final checklist. | Automated and required manual checks are recorded as passed; publication requires explicit approval. |
 
 ## Completed increments
 
@@ -58,28 +59,34 @@ an exact retry.
 
 M.6 was reviewed and merged into `main`.
 
+M.4-M.6 remain historical completed implementation. Their merged 11-column
+Excel contracts, cumulative SQLite storage, and atomic workbook publisher are
+not retroactively relabeled as CSV implementation.
+
 ## Next recommended increment
 
-Capture the sanitized authoritative PRISMA DOM evidence listed under M.9, then
-resume **M.9 — Automated PRISMA date filtering**. CSV download and integrated
-processing remain M.10 and M.11. Monitoring removal remains M.13.
+Complete **M.9 — Excel-to-CSV contract adaptation**. Then capture the remaining
+sanitized authoritative PRISMA DOM evidence for M.10. Automatic download remains
+M.11, integrated processing remains M.12, and monitoring removal remains M.14.
 
 ## Current increment
 
-### M.9 — Automated PRISMA date filtering
+### M.9 — Excel-to-CSV contract adaptation
 
-M.8 was reviewed and merged into `main` by merge commit `d1e6624`. The sanitized
-M.9 capture confirms the start-date and end-date controls, their displayed
-values, and their PRISMA-provided ISO values. It does not establish the accepted
-date-entry interaction, Apply action, or observable successfully applied range,
-so production automation cannot safely cross the Apply boundary yet.
+M.9 adapts the historical M.4-M.6 implementation to the revised authoritative
+cumulative output: 12 CSV columns, UTF-8 encoding, semicolon delimiters, dot
+decimal separators, and `Auction Premium (EUR/MWh/h)`. Market and Storage values
+come only from `MARKET_STORAGE_MAPPING.md`; unresolved values remain blank.
 
-By authoritative product decision, Mini must never automate a PRISMA Capacity
-filter. The booked-capacity rule is applied locally during CSV processing only
-after the authoritative CSV field and its semantics are explicitly verified.
+The sanitized date-control capture remains valid historical evidence but now
+belongs to M.10. It confirms the two inputs but not the accepted date-entry
+interaction, Apply action, or observable applied range. PRISMA Capacity
+automation remains prohibited. The marketed-capacity threshold of at least
+1000 kWh/h may be applied locally only after the CSV field and semantics are
+verified.
 
 The exact required **Copy outerHTML** captures and interaction observations are
-listed in `evidence/m9/README.md`. CSV-download evidence remains M.10. Live
+listed in `evidence/m9/README.md`. CSV-download evidence remains M.11. Live
 PRISMA interaction and headless/background behavior remain unvalidated.
 
 ## Maintenance rules

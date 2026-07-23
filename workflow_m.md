@@ -4,7 +4,7 @@
 
 Workflow M defines how **Prisma Function Mini** is planned, implemented, reviewed, and validated.
 
-The application is a single-user Windows desktop program. It opens PRISMA in a managed background browser session, lets the user select the required date range in Prisma Function Mini, downloads the official PRISMA CSV export, transforms it into the approved Excel mapping, and cumulatively stores historical results without duplicates.
+The application is a single-user Windows desktop program. It opens PRISMA in a managed background browser session, lets the user select the required date range in Prisma Function Mini, downloads the official PRISMA CSV export, transforms it into the approved cumulative CSV contract, and stores historical results without duplicates.
 
 ## 2. Product baseline
 
@@ -18,7 +18,8 @@ Every increment must remain consistent with these requirements:
    capacity of at least 1000 kWh/h after supported unit normalization are
    included by local CSV processing, using only an explicitly verified
    authoritative CSV field and semantics.
-6. The output workbook must expose:
+6. The output CSV must use UTF-8 encoding, a semicolon delimiter, a dot decimal
+   separator, and expose:
    - auction date;
    - exit market or storage;
    - entry market or storage;
@@ -30,9 +31,12 @@ Every increment must remain consistent with these requirements:
    - booked capacity in kWh/h;
    - duration in hours;
    - auction tariff in EUR/MWh/h.
+   - `Auction Premium (EUR/MWh/h)`.
 7. The output file is cumulative: existing historical rows are preserved and new rows are appended.
 8. Repeated downloads or imports must not create duplicate auction rows.
-9. Market and storage mappings may be added only from explicit authoritative evidence. No fuzzy, geographic, cross-side, TSO, EIC, or name-based inference is allowed.
+9. Market and storage mappings are limited to `MARKET_STORAGE_MAPPING.md`.
+   Unresolved output values remain blank. No fuzzy, geographic, cross-side,
+   TSO, EIC, substring, or name-based inference is allowed.
 10. Existing proven processing, mapping, persistence, runtime-path, browser, and packaging components from Prisma-function may be reused only when they match Mini requirements.
 11. Monitoring-specific functionality from the previous application is outside Mini scope unless explicitly approved.
 12. Any change to this baseline requires explicit customer approval and a documented roadmap update.
@@ -40,7 +44,7 @@ Every increment must remain consistent with these requirements:
 ## 3. Language rules
 
 - Application interface text: English.
-- Buttons, labels, dialogs, statuses, errors, workbook headers, filenames used by the program, code identifiers, branch names, commit messages, prompts, and technical documentation: English unless the project explicitly requires otherwise.
+- Buttons, labels, dialogs, statuses, errors, output headers, filenames used by the program, code identifiers, branch names, commit messages, prompts, and technical documentation: English unless the project explicitly requires otherwise.
 - User-facing development explanations may be Ukrainian.
 - Do not mix languages inside one application interface or output contract.
 
@@ -109,7 +113,7 @@ Before completion, Codex must run, as applicable:
 6. `git diff`;
 7. `git status --short --branch`.
 
-Codex must never claim a check passed unless it actually ran and completed successfully. Manual Windows, PRISMA live-session, browser-background, workbook, and packaged-application checks must be reported separately from automated tests.
+Codex must never claim a check passed unless it actually ran and completed successfully. Manual Windows, PRISMA live-session, browser-background, CSV-consumer, and packaged-application checks must be reported separately from automated tests.
 
 ### 6.4. Handoff
 
@@ -126,7 +130,7 @@ When the code is ready, Codex may provide commands for the user to review, stage
 ## 7. Data integrity rules
 
 1. Existing historical data must never be silently deleted, overwritten, or rebuilt.
-2. A failed import or export must not publish a partial workbook or partial database update.
+2. A failed import or export must not publish a partial CSV or partial database update.
 3. Exact retries must be idempotent.
 4. Duplicate detection must use a documented stable identity and must not fall back to display names.
 5. Conflicting rows sharing one identity must fail closed and remain auditable.
@@ -147,17 +151,18 @@ When the code is ready, Codex may provide commands for the user to review, stage
 
 ## 9. Output contract
 
-The authoritative workbook column names and ordering must be documented before implementation and covered by tests.
+The authoritative CSV column names and ordering must be documented before implementation and covered by tests.
 
-The workbook must:
+The CSV must:
 
-- preserve approved mapping and formatting;
+- use UTF-8 encoding, semicolon delimiters, and dot decimal separators;
+- preserve the approved mapping and 12-column order;
 - append new unique rows deterministically;
 - retain old rows;
 - remain unchanged on exact retry except for explicitly approved audit metadata;
 - be published atomically;
-- open successfully in Microsoft Excel;
-- keep numeric, date/time, and tariff values in their correct types and units.
+- keep numeric, date/time, tariff, and premium values in their correct textual
+  representations and units.
 
 ## 10. Definition of Done
 
@@ -180,13 +185,15 @@ An increment is complete only when:
 The first Mini increments should establish, in order:
 
 1. Mini-specific project documentation and removal of stale Prisma-function roadmap assumptions.
-2. Approved Excel output contract and deduplication identity.
+2. Approved output contract and deduplication identity.
 3. Minimal Mini UI with date-range selection and truthful state management.
 4. Managed PRISMA background-session foundation.
-5. `Start of Auction` date-range automation and verified CSV download, with
-   booked-capacity filtering performed locally from explicitly verified CSV semantics.
-6. Transformation into the approved cumulative workbook.
-7. End-to-end recovery, retry, cancellation, and data-integrity validation.
-8. Windows packaging and clean-machine validation.
+5. Adaptation of the historical Excel implementation to the approved cumulative
+   12-column CSV contract.
+6. `Start of Auction` date-range automation, with booked-capacity filtering
+   performed locally from explicitly verified CSV semantics.
+7. Verified automatic CSV download.
+8. End-to-end recovery, retry, cancellation, and data-integrity validation.
+9. Windows packaging and clean-machine validation.
 
 The exact increment IDs and status are maintained only in `ROADMAP.md`.

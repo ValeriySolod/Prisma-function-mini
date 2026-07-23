@@ -1,6 +1,10 @@
-# M.9 PRISMA date-filter evidence
+# Historical PRISMA date-filter evidence captured before M.9 realignment
 
 ## Product boundary
+
+This evidence was originally captured for the former M.9 date-filter increment.
+After the authoritative roadmap realignment, date filtering is M.10 and this
+directory remains historical evidence for that work.
 
 Mini automates only the PRISMA `Start of Auction` date range. It does not set a
 PRISMA Capacity filter. The booked-capacity rule belongs to local CSV processing
@@ -24,7 +28,7 @@ No CSV field or capacity semantics are approved by this DOM evidence.
   or an observable successfully applied date-range state.
 
 The confirmed controls and their observed attributes are preserved verbatim in
-both HTML files. M.9 automation remains blocked at the Apply boundary.
+both HTML files. M.10 automation remains blocked at the Apply boundary.
 
 ## Remaining sanitized capture
 
@@ -44,4 +48,4 @@ auction-result data. Do not replace attributes with invented placeholders; if
 an attribute contains sensitive data, remove that complete attribute and note
 the removal separately.
 
-CSV-download controls and download completion evidence belong to M.10, not M.9.
+CSV-download controls and download completion evidence belong to M.11, not M.10.
