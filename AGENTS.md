@@ -4,7 +4,7 @@
 
 Prisma Function Mini is a single-user Windows desktop application that automates retrieval and transformation of official PRISMA auction exports.
 
-The user selects a date range in the Mini application. The application runs PRISMA through a managed background browser session, downloads the official CSV export, transforms relevant auction rows into the approved Excel mapping, and preserves cumulative historical results without duplicates.
+The user selects a date range in the Mini application. The application runs PRISMA through a managed background browser session, downloads the official PRISMA CSV export, transforms relevant auction rows into the approved cumulative CSV contract, and preserves historical results without duplicates.
 
 ## Sources of truth
 
@@ -28,7 +28,7 @@ The roadmap and approved specification define scope. If they conflict or require
 - Do not change architecture, expand scope, upgrade dependencies, or perform unrelated refactoring without approval.
 - Preserve all existing user changes.
 - Add relevant tests for every feature and a regression test for every bug fix.
-- Keep application UI, code identifiers, prompts, commit messages, workbook headers, and technical documentation in English.
+- Keep application UI, code identifiers, prompts, commit messages, output headers, and technical documentation in English.
 - Never store credentials, tokens, personal data, complete sensitive URLs, or runtime secrets.
 - Do not commit, push, open or merge pull requests, rebase, force-push, delete branches, or publish releases without explicit permission.
 - The user normally creates and merges pull requests and cleans up branches.
@@ -39,7 +39,8 @@ The roadmap and approved specification define scope. If they conflict or require
 - PRISMA access belongs to an application-owned Playwright browser lifecycle.
 - Prefer a headless/background session when real PRISMA behavior supports it. If a visible browser is technically required, keep it managed and unobtrusive without weakening reliability.
 - CSV download is automatic and must be tied to the requested date range.
-- The output is a cumulative Excel workbook.
+- The output is a cumulative 12-column CSV encoded as UTF-8, with semicolon
+  delimiters and dot decimal separators.
 - Existing historical rows must be preserved.
 - Exact retries must not create duplicates.
 - Market and storage enrichment must use explicit authoritative evidence only.
@@ -50,12 +51,12 @@ The roadmap and approved specification define scope. If they conflict or require
 ## Architecture constraints
 
 - Keep business logic independent from PySide6.
-- Keep browser, CSV, database, and workbook work outside the GUI thread.
+- Keep browser, CSV, database, and output publication work outside the GUI thread.
 - Use Qt signals or an equivalent safe boundary for worker-to-UI communication.
 - Keep browser ownership, cancellation, retry, shutdown, and cleanup explicit.
 - Use typed outcomes for expected failures.
 - Validate the downloaded CSV contract before persistence.
-- Make database updates and workbook publication transactional or atomic.
+- Make database updates and CSV publication transactional or atomic.
 - Use a documented stable auction identity; never use display names as an identity fallback.
 - Store writable runtime data below the approved Windows user-data directory, not beside the executable.
 
@@ -71,7 +72,7 @@ Before handing off an increment, run as applicable:
 6. inspect `git diff`;
 7. inspect `git status --short --branch`.
 
-Never claim a check passed unless it actually ran successfully. Report manual Windows, live PRISMA, browser-background, Excel, installer, and clean-machine checks separately.
+Never claim a check passed unless it actually ran successfully. Report manual Windows, live PRISMA, browser-background, CSV-consumer, installer, and clean-machine checks separately.
 
 ## Completion report
 
