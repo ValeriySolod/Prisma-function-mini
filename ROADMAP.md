@@ -24,14 +24,28 @@
 | M.9 | Excel-to-CSV contract adaptation | ✅ Completed | Adapt the historical M.4-M.6 11-column Excel contracts and publisher to the authoritative cumulative 12-column CSV, including Auction Premium. | UTF-8, semicolon delimiter, dot decimal separator, exact 12-column order, authoritative blank-preserving mapping, cumulative atomic publication, and regression tests pass. |
 | M.10 | Automated PRISMA date filtering | ✅ Completed | Mini applies only the selected `Start of Auction` date range; PRISMA Capacity automation is prohibited. | Confirmed stable DOM selectors drive exact date entry and Apply; interpreted timestamps, applied state, refresh, typed failures, cancellation, duplicate submission, bounded retry compatibility, and cleanup have deterministic adapter tests. |
 | M.11 | Automatic CSV download | ✅ Completed | Verified download to an application-controlled temporary location. | Missing, partial, empty, wrong-contract, cancellation, timeout, and retry scenarios are covered; requested range is audited; merged to `main`. |
-| M.12 | Integrated transformation workflow | 🟡 In progress | Download, validation, normalization, authoritative enrichment, storage, audit, and CSV publication operate as one workflow. | Every row is accounted for; failure is atomic; exact retry is unchanged; integrated tests pass. |
-| M.13 | Daily cumulative operation readiness | ⬜ Planned | User workflow supports safe daily updates and overlapping ranges. | Multiple-day and repeated-run scenarios preserve history without duplicates; restart recovery is validated. |
+| M.12 | Integrated transformation workflow | ✅ Completed | Download, validation, normalization, authoritative enrichment, storage, audit, and CSV publication operate as one workflow. | Every row is accounted for; failure is atomic; exact retry is unchanged; integrated tests pass; merged to `main`. |
+| M.13 | Daily cumulative operation readiness | 🟡 In progress | User workflow supports safe daily updates and overlapping ranges. | Multiple-day and repeated-run scenarios preserve history without duplicates; restart recovery is validated. |
 | M.14 | Remove excluded monitoring functionality | ⬜ Planned | Monitoring UI, scheduler, status checks, notifications, and monitoring-only persistence are removed from the Mini product path. | Import/browser/shared utilities remain green; no monitoring controls or background monitoring processes remain. |
 | M.15 | Windows package and installer | ⬜ Planned | Mini-specific PyInstaller onedir package and per-user installer. | Structural validation passes; runtime data stays in the Mini user-data directory; no Python installation is required. |
 | M.16 | Real PRISMA and clean-Windows validation | ⬜ Planned | Recorded end-to-end validation on a standard non-administrator Windows computer. | Background session, download, data-bearing transform, cumulative CSV output, retry, overlap, restart, shutdown, installer, and uninstaller checks pass. |
 | M.17 | Release readiness | ⬜ Planned | Versioned release archive, checksum, release notes, and final checklist. | Automated and required manual checks are recorded as passed; publication requires explicit approval. |
 
 ## In-progress increments
+
+### M.13 — Daily cumulative operation readiness
+
+M.13 hardens repeated daily and overlapping-range operation across complete
+application restarts. SQLite remains authoritative. Before a new operation,
+Mini removes only abandoned Mini-owned publication staging files and
+production UUID download-operation directories, then deterministically
+reconciles a missing, stale, or interrupted cumulative CSV from SQLite history.
+Unrelated files are preserved. Failed pre-persistence or publication attempts
+do not commit auction or audit rows; the later successful retry records the
+truthful inserted, duplicate, filtered, rejected, and source counts. M.13
+remains In progress until merge.
+
+## Completed increments
 
 ### M.12 — Integrated transformation workflow
 
@@ -40,10 +54,8 @@ M.12 connects the managed browser, date filter, automatic download, exact
 mapping, transactional cumulative storage and audit, and atomic CSV publisher
 through the M.7 worker boundary. It applies the local normalized marketed
 capacity threshold, exact gas-day/calendar product classification, DST-aware
-duration, side-specific tariffs, and surcharge premium conversion. M.12 remains
-In progress until merge.
-
-## Completed increments
+duration, side-specific tariffs, and surcharge premium conversion. M.12 was
+merged into `main`.
 
 ### M.10 — Automated PRISMA date filtering
 

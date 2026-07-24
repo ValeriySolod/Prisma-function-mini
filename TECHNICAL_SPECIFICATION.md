@@ -218,6 +218,23 @@ Each operation must record:
 
 Database mutation and audit creation must be transactional. Interrupted CSV publication must be recoverable. A failed operation must remain retryable without corrupting historical data.
 
+For M.13, recovery runs before each integrated operation. SQLite auction and
+audit history is never rebuilt from the published CSV. Mini removes only its
+documented same-directory CSV staging files and production UUID-named
+temporary-download operation directories. Other files and directories are
+untouched. If authoritative SQLite history exists and the cumulative CSV is
+missing, stale, invalid, or reflects an interrupted publication, Mini
+regenerates it deterministically through the atomic publisher before starting
+the next download.
+
+An operation that fails or is cancelled before persistence commits no auction
+or audit rows. Publication remains inside the SQLite write transaction; a
+publication failure rolls back both the candidate auction rows and operation
+audit and preserves the last valid CSV. A later retry is a new completed
+operation with counts derived only from that retry. Completed exact retries
+record zero inserted rows and truthful duplicate, filtered, rejected, and
+source-row counts.
+
 ### FR-009 — User interface states
 
 At minimum:
