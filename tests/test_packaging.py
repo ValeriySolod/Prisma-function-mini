@@ -24,6 +24,7 @@ def test_spec_configures_windows_gui_application():
     assert 'collect_data_files("playwright")' in content
     assert '"mini_browser"' in content
     assert '"mini_download"' in content
+    assert '"mini_workflow"' in content
     assert "COLLECT(" in content
     assert 'version="PrismaFunctionMini.version"' in content
     assert 'excludes=["pytest", "_pytest", "setuptools"]' in content

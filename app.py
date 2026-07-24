@@ -31,6 +31,7 @@ from mini_ui import (
     MiniWorkRequest,
     validate_date_range,
 )
+from mini_workflow import MiniIntegratedWorkflow
 from runtime_logging import LOGGER_NAME, initialize_runtime_logging, safe_log
 from runtime_paths import RuntimePathError, RuntimePaths, prepare_runtime_directories, runtime_paths
 from version import APP_DISPLAY_NAME, __version__
@@ -57,10 +58,13 @@ class WorkerSignals(QObject):
 
 
 class MiniMainWindow(QMainWindow):
-    def __init__(self, paths: RuntimePaths, *, work_runner: WorkRunner = unavailable_workflow) -> None:
+    def __init__(self, paths: RuntimePaths, *, work_runner: WorkRunner | None = None) -> None:
         super().__init__()
         self._runtime_paths = paths
-        self._work_runner = work_runner
+        self._work_runner = work_runner or (
+            lambda request, cancel_event, progress:
+            MiniIntegratedWorkflow(paths).run(request, cancel_event, progress)
+        )
         self._logger = logging.getLogger(LOGGER_NAME)
         self._state_model = MiniUiStateModel()
         self._generation = 0

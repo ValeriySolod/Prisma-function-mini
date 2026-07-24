@@ -201,6 +201,7 @@ def test_close_requests_cancellation_and_waits_for_worker(qt_app, paths):
 
 
 def test_default_m7_runner_reports_unavailable_without_browser_work(qt_app, window):
+    window._work_runner = app.unavailable_workflow
     window.start_work()
     wait_until(qt_app, lambda: window.state is MiniUiState.ERROR)
     assert window.status_label.text() == "Processing is not available in this version yet."
