@@ -17,6 +17,7 @@ from mini_browser import (
     MiniPrismaSession,
 )
 from mini_domain import MiniDateRange
+from mini_download import MiniDownloadTimeoutError
 from prisma_page import PrismaAuthenticationRequiredError
 
 
@@ -198,6 +199,22 @@ def test_session_action_runs_only_after_readiness_and_returns_value():
         threading.Event(), lambda page, cancel: order.append("action") or 7
     ) == 7
     assert order == ["ready", "action"]
+
+
+def test_uncertain_download_failure_is_not_retried_as_session_startup():
+    browser = FakeBrowser()
+    session, playwrights = make_session(lambda: browser)
+
+    with pytest.raises(MiniDownloadTimeoutError):
+        session.run(
+            threading.Event(),
+            lambda _page, _cancel: (_ for _ in ()).throw(
+                MiniDownloadTimeoutError("uncertain post-click failure")
+            ),
+        )
+
+    assert len(playwrights) == 1
+    assert_clean(browser, playwrights[0])
 
 
 def test_authentication_required_is_typed_not_retried_and_cleans_up():
