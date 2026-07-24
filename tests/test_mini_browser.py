@@ -1,4 +1,5 @@
 import threading
+from datetime import date
 from pathlib import Path
 
 import pytest
@@ -12,8 +13,10 @@ from mini_browser import (
     MiniBrowserReady,
     MiniBrowserStartupError,
     MiniBrowserTimeoutError,
+    MiniPrismaDateFilter,
     MiniPrismaSession,
 )
+from mini_domain import MiniDateRange
 from prisma_page import PrismaAuthenticationRequiredError
 
 
@@ -92,6 +95,47 @@ class FakeDetector:
 
 class TimeoutError(Exception):
     pass
+
+
+class DateFilterLocator:
+    def __init__(self, iso="2026-07-01T04:00:00.000Z"):
+        self.iso = iso
+        self.value = ""
+        self.clicks = 0
+
+    def wait_for(self, **_kwargs):
+        return None
+
+    def fill(self, value, **_kwargs):
+        self.value = value
+
+    def input_value(self, **_kwargs):
+        return self.value
+
+    def get_attribute(self, _name, **_kwargs):
+        return self.iso
+
+    def click(self, **_kwargs):
+        self.clicks += 1
+
+
+class DateFilterPage(FakePage):
+    def __init__(self):
+        super().__init__()
+        self.locators = {
+            MiniPrismaDateFilter.START_SELECTOR: DateFilterLocator(),
+            MiniPrismaDateFilter.END_SELECTOR: DateFilterLocator(
+                "2026-07-02T04:00:00.000Z"
+            ),
+            MiniPrismaDateFilter.APPLY_SELECTOR: DateFilterLocator(),
+            MiniPrismaDateFilter.CONFIRMATION_SELECTOR: DateFilterLocator(),
+        }
+
+    def locator(self, selector):
+        return self.locators[selector]
+
+    def wait_for_load_state(self, state, **_kwargs):
+        assert state == "networkidle"
 
 
 def make_session(launch, readiness=lambda page, timeout: None, **policy):
@@ -193,6 +237,30 @@ def test_transient_startup_failure_retries_then_succeeds():
 
     session, playwrights = make_session(launch)
     assert session.run(threading.Event()) == MiniBrowserReady(2, BrowserMode.HEADLESS)
+    assert len(playwrights) == 2
+    assert playwrights[0].stopped == 1
+    assert_clean(browser, playwrights[1])
+
+
+def test_date_filter_preserves_bounded_startup_retry_and_cleanup():
+    page = DateFilterPage()
+    browser = FakeBrowser(FakeContext(page))
+    attempts = iter((RuntimeError("driver unavailable"), browser))
+
+    def launch():
+        value = next(attempts)
+        if isinstance(value, Exception):
+            raise value
+        return value
+
+    session, playwrights = make_session(launch)
+    result = session.apply_date_filter(
+        threading.Event(),
+        MiniDateRange(date(2026, 7, 1), date(2026, 7, 2)),
+    )
+
+    assert result.start_value == "01.07.2026      06:00"
+    assert page.locators[MiniPrismaDateFilter.APPLY_SELECTOR].clicks == 1
     assert len(playwrights) == 2
     assert playwrights[0].stopped == 1
     assert_clean(browser, playwrights[1])

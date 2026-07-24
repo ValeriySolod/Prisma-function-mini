@@ -84,6 +84,25 @@ one immediate retry; authentication-required, cancellation, and unexpected
 closure do not retry. Every attempt closes its page, context, browser, event
 listeners, and Playwright driver before returning or retrying.
 
+For M.10, the existing validated `MiniDateRange` is the only date contract.
+Both inclusive local calendar boundaries use the documented PRISMA auction-day
+boundary `06:00` and are formatted exactly as `DD.MM.YYYY      HH:mm`. The
+stable automation selectors are:
+
+- From: `[data-testid="startOfAuctionFrom"]`;
+- To: `[data-testid="startOfAuctionTo"]`;
+- Apply: `[data-testid="submit-filters"]`;
+- applied-state confirmation: `[data-testid="filter-startOfAuctionFrom"]`.
+
+There is no confirmed `filter-startOfAuctionTo` contract. Mini neither queries
+nor infers one. Before Apply, Mini verifies exact input values and requires each
+control to expose a parseable timezone-aware `data-test-iso-value`; PRISMA
+remains authoritative for its interpreted timezone. After the confirmed
+applied-state tag appears, Mini waits for the auction result network refresh
+without arbitrary sleeps. Cancellation is polled during every wait, and an
+adapter instance can submit only once so a post-Apply timeout cannot cause a
+duplicate submission.
+
 ### FR-003 — Automatic CSV download
 
 - Mini must navigate to the approved PRISMA auction export page.

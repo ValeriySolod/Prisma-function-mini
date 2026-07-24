@@ -22,7 +22,7 @@
 | M.7 | Minimal Mini UI foundation | ✅ Completed | Focused PySide6 window without monitoring dashboard behavior. | Start/end date controls, truthful state model, Start/Cancel/Open Result actions, and responsive worker signaling are tested; merged to `main`. |
 | M.8 | Managed PRISMA background session | ✅ Completed | Mini-owned Playwright lifecycle with an explicit headless-first policy and no unverified visible fallback. | Startup, readiness, authentication-required, timeout, closure, cancellation, one bounded transient retry, and deterministic cleanup are covered without live access; merged to `main`. |
 | M.9 | Excel-to-CSV contract adaptation | ✅ Completed | Adapt the historical M.4-M.6 11-column Excel contracts and publisher to the authoritative cumulative 12-column CSV, including Auction Premium. | UTF-8, semicolon delimiter, dot decimal separator, exact 12-column order, authoritative blank-preserving mapping, cumulative atomic publication, and regression tests pass. |
-| M.10 | Automated PRISMA date filtering | ⛔ Blocked | Mini applies only the selected `Start of Auction` date range; PRISMA Capacity automation is prohibited. | Real DOM evidence confirms date-entry, Apply, and applied-range behavior; changed/unavailable DOM failures are typed; deterministic adapter tests pass. |
+| M.10 | Automated PRISMA date filtering | ✅ Completed | Mini applies only the selected `Start of Auction` date range; PRISMA Capacity automation is prohibited. | Confirmed stable DOM selectors drive exact date entry and Apply; interpreted timestamps, applied state, refresh, typed failures, cancellation, duplicate submission, bounded retry compatibility, and cleanup have deterministic adapter tests. |
 | M.11 | Automatic CSV download | ⬜ Planned | Verified download to an application-controlled temporary location. | Missing, partial, empty, wrong-contract, cancellation, timeout, and retry scenarios are covered; requested range is audited. |
 | M.12 | Integrated transformation workflow | ⬜ Planned | Download, validation, normalization, authoritative enrichment, storage, audit, and CSV publication operate as one workflow. | Every row is accounted for; failure is atomic; exact retry is unchanged; integrated tests pass. |
 | M.13 | Daily cumulative operation readiness | ⬜ Planned | User workflow supports safe daily updates and overlapping ranges. | Multiple-day and repeated-run scenarios preserve history without duplicates; restart recovery is validated. |
@@ -32,6 +32,25 @@
 | M.17 | Release readiness | ⬜ Planned | Versioned release archive, checksum, release notes, and final checklist. | Automated and required manual checks are recorded as passed; publication requires explicit approval. |
 
 ## Completed increments
+
+### M.10 — Automated PRISMA date filtering
+
+M.10 consumes the existing validated `MiniDateRange` and maps each inclusive
+local calendar boundary to `DD.MM.YYYY      06:00`. It fills only
+`[data-testid="startOfAuctionFrom"]` and
+`[data-testid="startOfAuctionTo"]`, verifies each exact displayed value and a
+valid timezone-aware `data-test-iso-value`, and then activates
+`[data-testid="submit-filters"]`. Successful application is confirmed only by
+`[data-testid="filter-startOfAuctionFrom"]`; no end-tag selector is required or
+inferred. Auction-result refresh is awaited through Playwright load state
+without arbitrary sleeps.
+
+Missing controls, rejected values, invalid interpreted timestamps, Apply
+timeout, authentication loss, cancellation, and refresh failure have typed
+outcomes. One adapter instance submits at most once, including after an
+uncertain post-Apply failure, while M.8 retains one bounded pre-action session
+retry and deterministic cleanup. CSV download and all M.9 processing,
+persistence, duplicate, and publication behavior remain outside this adapter.
 
 ### M.9 — Excel-to-CSV contract adaptation
 
@@ -75,8 +94,7 @@ not retroactively relabeled as CSV implementation.
 
 ## Next recommended increment
 
-Capture the remaining sanitized authoritative PRISMA DOM evidence for M.10.
-Automatic download remains M.11, integrated processing remains M.12, and
+M.11 — Automatic CSV download. Integrated processing remains M.12, and
 monitoring removal remains M.14.
 
 ## Current contract
@@ -88,16 +106,13 @@ cumulative output: 12 CSV columns, UTF-8 encoding, semicolon delimiters, dot
 decimal separators, and `Auction Premium (EUR/MWh/h)`. Market and Storage values
 come only from `MARKET_STORAGE_MAPPING.md`; unresolved values remain blank.
 
-The sanitized date-control capture remains valid historical evidence but now
-belongs to M.10. It confirms the two inputs but not the accepted date-entry
-interaction, Apply action, or observable applied range. PRISMA Capacity
-automation remains prohibited. The marketed-capacity threshold of at least
-1000 kWh/h may be applied locally only after the CSV field and semantics are
-verified.
+M.10 now owns the confirmed date-filter interaction described above. PRISMA
+Capacity automation remains prohibited. The marketed-capacity threshold of at
+least 1000 kWh/h may be applied locally only after the CSV field and semantics
+are verified.
 
-The exact required **Copy outerHTML** captures and interaction observations are
-listed in `evidence/m9/README.md`. CSV-download evidence remains M.11. Live
-PRISMA interaction and headless/background behavior remain unvalidated.
+CSV-download evidence remains M.11. Live PRISMA interaction and
+headless/background behavior remain unvalidated.
 
 ## Maintenance rules
 
