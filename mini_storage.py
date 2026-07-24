@@ -50,6 +50,8 @@ class StorageResult:
     validation_failures: int
     started_at: datetime
     completed_at: datetime
+    filtered: int = 0
+    source_rows: int = 0
 
 
 @dataclass(frozen=True)
@@ -64,6 +66,8 @@ class OperationAudit:
     started_at: datetime
     completed_at: datetime
     failures: tuple[ValidationFailure, ...]
+    filtered: int = 0
+    source_rows: int = 0
 
 
 class MiniAuctionStorage:
@@ -135,6 +139,8 @@ class MiniAuctionStorage:
                     duplicate_count INTEGER NOT NULL CHECK(duplicate_count >= 0),
                     conflict_count INTEGER NOT NULL CHECK(conflict_count >= 0),
                     validation_failure_count INTEGER NOT NULL CHECK(validation_failure_count >= 0),
+                    filtered_count INTEGER NOT NULL DEFAULT 0 CHECK(filtered_count >= 0),
+                    source_row_count INTEGER NOT NULL DEFAULT 0 CHECK(source_row_count >= 0),
                     started_at_utc TEXT NOT NULL,
                     completed_at_utc TEXT NOT NULL
                 )""",
@@ -158,6 +164,17 @@ class MiniAuctionStorage:
                 connection.execute(
                     "ALTER TABLE mini_auctions "
                     "ADD COLUMN auction_premium_eur_mwh_h TEXT"
+                )
+            operation_columns = {
+                row["name"] for row in connection.execute("PRAGMA table_info(mini_operations)")
+            }
+            if "filtered_count" not in operation_columns:
+                connection.execute(
+                    "ALTER TABLE mini_operations ADD COLUMN filtered_count INTEGER NOT NULL DEFAULT 0"
+                )
+            if "source_row_count" not in operation_columns:
+                connection.execute(
+                    "ALTER TABLE mini_operations ADD COLUMN source_row_count INTEGER NOT NULL DEFAULT 0"
                 )
 
     def store(self, request: SourceImportRequest,
@@ -220,6 +237,89 @@ class MiniAuctionStorage:
             raise AuctionConflictError(result)
         return result
 
+    def store_and_publish(
+        self,
+        request: SourceImportRequest,
+        records: Iterable[NormalizedAuctionRecord],
+        *,
+        validation_failures: Iterable[ValidationFailure] = (),
+        filtered: int = 0,
+        source_rows: int = 0,
+        publish: Callable[[tuple[NormalizedAuctionRecord, ...]], object],
+    ) -> StorageResult:
+        """Commit one mixed row-accounted operation only if publication succeeds."""
+
+        incoming = tuple(records)
+        failures = tuple(validation_failures)
+        if not isinstance(request, SourceImportRequest):
+            raise TypeError("request must be SourceImportRequest.")
+        if any(not isinstance(item, NormalizedAuctionRecord) for item in incoming):
+            raise TypeError("records must contain NormalizedAuctionRecord values.")
+        if any(not isinstance(item, ValidationFailure) for item in failures):
+            raise TypeError("validation_failures must contain ValidationFailure values.")
+        if type(filtered) is not int or filtered < 0:
+            raise ValueError("filtered must be a non-negative integer.")
+        if type(source_rows) is not int or source_rows != len(incoming) + filtered + len(failures):
+            raise ValueError("source_rows must account for every incoming source row.")
+        if not callable(publish):
+            raise TypeError("publish must be callable.")
+        started_at = self._utc_now()
+        operation_id = uuid.uuid4().hex
+        conflict: ValidationFailure | None = None
+
+        with self._transaction() as connection:
+            known: dict[tuple[object, ...], NormalizedAuctionRecord] = {}
+            for row in connection.execute("SELECT * FROM mini_auctions"):
+                record = self._record_from_row(row)
+                known[self._key(record)] = record
+            inserted: list[NormalizedAuctionRecord] = []
+            duplicates = 0
+            for record in incoming:
+                previous = known.get(self._key(record))
+                if previous is None:
+                    known[self._key(record)] = record
+                    inserted.append(record)
+                elif previous == record:
+                    duplicates += 1
+                else:
+                    conflict = ValidationFailure(
+                        ValidationReason.CONFLICTING_DUPLICATE,
+                        "Incoming auction conflicts with an existing duplicate key.",
+                    )
+                    break
+
+            if conflict is not None:
+                result = self._audit(
+                    connection, operation_id, request, StorageOutcome.FAILED,
+                    0, duplicates, 1, len(failures), failures + (conflict,), started_at,
+                    filtered=filtered, source_rows=source_rows,
+                )
+            else:
+                accumulated_at = self._utc_now()
+                for position, record in enumerate(inserted):
+                    self._before_insert(record, position)
+                    connection.execute(
+                        self._INSERT_AUCTION,
+                        self._auction_values(record, request.sha256, accumulated_at),
+                    )
+                result = self._audit(
+                    connection, operation_id, request, StorageOutcome.COMPLETED,
+                    len(inserted), duplicates, 0, len(failures), failures, started_at,
+                    filtered=filtered, source_rows=source_rows,
+                )
+                published_records = tuple(
+                    self._record_from_row(row)
+                    for row in connection.execute(
+                        "SELECT * FROM mini_auctions "
+                        "ORDER BY flow_start, flow_end, auction_id, network_point_id, capacity_type, id"
+                    )
+                )
+                publish(published_records)
+
+        if conflict is not None:
+            raise AuctionConflictError(result)
+        return result
+
     def history(self) -> tuple[HistoryRecord, ...]:
         with closing(self._connect()) as connection:
             rows = connection.execute("""
@@ -254,6 +354,7 @@ class MiniAuctionStorage:
                     row["inserted_count"], row["duplicate_count"], row["conflict_count"],
                     row["validation_failure_count"], self._parse_utc(row["started_at_utc"]),
                     self._parse_utc(row["completed_at_utc"]), failures,
+                    row["filtered_count"], row["source_row_count"],
                 ))
         return tuple(result)
 
@@ -266,15 +367,22 @@ class MiniAuctionStorage:
                request: SourceImportRequest, outcome: StorageOutcome,
                inserted: int, duplicates: int, conflicts: int,
                validation_failure_count: int,
-               failures: tuple[ValidationFailure, ...], started_at: datetime) -> StorageResult:
+               failures: tuple[ValidationFailure, ...], started_at: datetime,
+               *, filtered: int = 0, source_rows: int = 0) -> StorageResult:
         completed_at = self._utc_now()
         connection.execute("""
-            INSERT INTO mini_operations VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO mini_operations (
+                operation_id, requested_start, requested_end, source_name, source_sha256,
+                source_size_bytes, outcome, inserted_count, duplicate_count, conflict_count,
+                validation_failure_count, filtered_count, source_row_count,
+                started_at_utc, completed_at_utc
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             operation_id, request.requested_range.start.isoformat(),
             request.requested_range.end.isoformat(), request.source_name, request.sha256,
             request.size_bytes, outcome.value, inserted, duplicates, conflicts,
-            validation_failure_count, started_at.isoformat(), completed_at.isoformat(),
+            validation_failure_count, filtered, source_rows,
+            started_at.isoformat(), completed_at.isoformat(),
         ))
         connection.executemany("""
             INSERT INTO mini_operation_failures
@@ -284,7 +392,8 @@ class MiniAuctionStorage:
                 failure.source_row_number, failure.field_name)
                for position, failure in enumerate(failures)))
         return StorageResult(operation_id, outcome, inserted, duplicates, conflicts,
-                             validation_failure_count, started_at, completed_at)
+                             validation_failure_count, started_at, completed_at,
+                             filtered, source_rows)
 
     def _utc_now(self) -> datetime:
         value = self._clock()

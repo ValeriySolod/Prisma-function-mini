@@ -123,7 +123,7 @@ set QT_QPA_PLATFORM=offscreen
 set PYTHONUTF8=1
 python -m pytest -q tests\test_packaging.py
 python -m pytest -q
-python -m compileall -q app.py auction_csv.py browser.py csv_contracts.py mini_browser.py mini_download.py mini_csv.py mini_domain.py mini_storage.py mini_ui.py monitoring.py monitoring_storage.py notifications.py prisma_import_workflow.py prisma_page.py prisma_references.py prisma_source_updates.py processor.py runtime_logging.py runtime_paths.py scheduler.py storage.py ui_components.py validate_package.py version.py tests
+python -m compileall -q app.py auction_csv.py browser.py csv_contracts.py mini_browser.py mini_download.py mini_csv.py mini_domain.py mini_storage.py mini_ui.py mini_workflow.py monitoring.py monitoring_storage.py notifications.py prisma_import_workflow.py prisma_page.py prisma_references.py prisma_source_updates.py processor.py runtime_logging.py runtime_paths.py scheduler.py storage.py ui_components.py validate_package.py version.py tests
 python -m PyInstaller --clean --noconfirm PrismaFunctionMini.spec
 python validate_package.py
 ```

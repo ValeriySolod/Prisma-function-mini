@@ -101,9 +101,32 @@ The stable duplicate key remains:
 
 `Surcharge` is the sole authoritative source for `Auction Premium (EUR/MWh/h)`. A blank `Surcharge` produces a blank premium. It must not produce zero.
 
-For `Entry`, the entry regulated tariff is selected. For `Exit`, the exit regulated tariff is selected. A bundled `Exit/Entry` row requires a separately approved deterministic tariff-selection rule if both side values are present and differ; the implementation must not guess or sum them.
+For `Entry`, only the entry regulated tariff is selected. For `Exit`, only the
+exit regulated tariff is selected. The opposite-side value is ignored and
+tariffs are never added. A missing or invalid required side-specific tariff
+rejects the row. `Exit/Entry` has no approved single side-specific tariff and is
+rejected rather than guessed, selected, or summed.
 
-Product Type normalization remains limited to the approved Mini domain values and requires an explicit evidence-backed rule. It must not be inferred only from runtime duration.
+### Product Type and duration
+
+Product Type is classified from the exact `Product Runtime Start` and
+`Product Runtime End` delivery boundaries in the `Europe/Berlin` PRISMA local
+timezone. The gas day starts at 06:00 local time:
+
+- `WD`: a delivery starting after 06:00 within a gas day and ending exactly at
+  the next 06:00 gas-day boundary;
+- `Day Ahead`: exactly one consecutive 06:00-to-06:00 gas day;
+- `Month`: 06:00 on the first calendar day of a month through 06:00 on the
+  first day of the next month;
+- `Quarter`: 06:00 on January 1, April 1, July 1, or October 1 through 06:00
+  on the first day of the next calendar quarter;
+- `Year`: 06:00 on October 1 through 06:00 on October 1 of the following year.
+
+Classification uses these exact calendar and gas-day boundaries, not raw
+duration alone. Unmatched, nonexistent, or ambiguous local periods are rejected
+as `product_type_unresolved`. Duration is elapsed UTC time between the
+timezone-aware boundaries, so DST-transition delivery periods may contain 23,
+24, or 25 hours.
 
 ## Capacity normalization
 

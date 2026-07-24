@@ -10,7 +10,7 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Iterable
 
-from mini_domain import MiniOutputRow, OUTPUT_COLUMNS
+from mini_domain import MiniOutputRow, NormalizedAuctionRecord, OUTPUT_COLUMNS
 from mini_storage import MiniAuctionStorage
 
 
@@ -31,10 +31,10 @@ class MiniCsvPublisher:
         self.output_path = storage.paths.result
 
     def publish(self) -> Path:
-        rows = tuple(
-            MiniOutputRow.from_record(item.auction).values()
-            for item in self.storage.history()
-        )
+        return self.publish_records(item.auction for item in self.storage.history())
+
+    def publish_records(self, records: Iterable[NormalizedAuctionRecord]) -> Path:
+        rows = tuple(MiniOutputRow.from_record(item).values() for item in records)
         expected = self._content(rows)
         self.output_path.parent.mkdir(parents=True, exist_ok=True)
         if self.output_path.exists():

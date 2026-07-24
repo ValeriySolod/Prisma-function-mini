@@ -23,8 +23,8 @@
 | M.8 | Managed PRISMA background session | ✅ Completed | Mini-owned Playwright lifecycle with an explicit headless-first policy and no unverified visible fallback. | Startup, readiness, authentication-required, timeout, closure, cancellation, one bounded transient retry, and deterministic cleanup are covered without live access; merged to `main`. |
 | M.9 | Excel-to-CSV contract adaptation | ✅ Completed | Adapt the historical M.4-M.6 11-column Excel contracts and publisher to the authoritative cumulative 12-column CSV, including Auction Premium. | UTF-8, semicolon delimiter, dot decimal separator, exact 12-column order, authoritative blank-preserving mapping, cumulative atomic publication, and regression tests pass. |
 | M.10 | Automated PRISMA date filtering | ✅ Completed | Mini applies only the selected `Start of Auction` date range; PRISMA Capacity automation is prohibited. | Confirmed stable DOM selectors drive exact date entry and Apply; interpreted timestamps, applied state, refresh, typed failures, cancellation, duplicate submission, bounded retry compatibility, and cleanup have deterministic adapter tests. |
-| M.11 | Automatic CSV download | 🟡 In progress | Verified download to an application-controlled temporary location. | Missing, partial, empty, wrong-contract, cancellation, timeout, and retry scenarios are covered; requested range is audited. |
-| M.12 | Integrated transformation workflow | ⬜ Planned | Download, validation, normalization, authoritative enrichment, storage, audit, and CSV publication operate as one workflow. | Every row is accounted for; failure is atomic; exact retry is unchanged; integrated tests pass. |
+| M.11 | Automatic CSV download | ✅ Completed | Verified download to an application-controlled temporary location. | Missing, partial, empty, wrong-contract, cancellation, timeout, and retry scenarios are covered; requested range is audited; merged to `main`. |
+| M.12 | Integrated transformation workflow | 🟡 In progress | Download, validation, normalization, authoritative enrichment, storage, audit, and CSV publication operate as one workflow. | Every row is accounted for; failure is atomic; exact retry is unchanged; integrated tests pass. |
 | M.13 | Daily cumulative operation readiness | ⬜ Planned | User workflow supports safe daily updates and overlapping ranges. | Multiple-day and repeated-run scenarios preserve history without duplicates; restart recovery is validated. |
 | M.14 | Remove excluded monitoring functionality | ⬜ Planned | Monitoring UI, scheduler, status checks, notifications, and monitoring-only persistence are removed from the Mini product path. | Import/browser/shared utilities remain green; no monitoring controls or background monitoring processes remain. |
 | M.15 | Windows package and installer | ⬜ Planned | Mini-specific PyInstaller onedir package and per-user installer. | Structural validation passes; runtime data stays in the Mini user-data directory; no Python installation is required. |
@@ -33,24 +33,15 @@
 
 ## In-progress increments
 
-### M.11 — Automatic CSV download
+### M.12 — Integrated transformation workflow
 
-M.11 adds a typed download adapter after successful M.10 date application. It
-submits the confirmed main CSV action outside the open dialog, uses Playwright
-download events, accepts only the official `Auction_overview.csv` filename, and
-stages each operation below the Mini-owned `temporary-downloads` directory.
-Acceptance requires a completed, non-empty, stable SHA-256 file matching the
-existing authoritative PRISMA export contract. Immutable metadata binds the
-source name, digest, size, and exact `MiniDateRange` for the later M.12 audit
-boundary.
-
-The confirmed limit dialog is parsed only through its exact container, warning
-text, and inner `MonolithDownload` CSV action. When the advertised total exceeds
-the downloadable count, the result fails closed and its owned files are
-removed. Changed DOM, missing or timed-out downloads, cancellation, page
-closure, partial files, collisions, filesystem errors, and cleanup failures are
-typed. An uncertain post-click failure cannot cause duplicate export
-submission. M.11 remains In progress until merge; M.12 integration is excluded.
+M.12 connects the managed browser, date filter, automatic download, exact
+35-column source validation, row-accounted transformation, authoritative
+mapping, transactional cumulative storage and audit, and atomic CSV publisher
+through the M.7 worker boundary. It applies the local normalized marketed
+capacity threshold, exact gas-day/calendar product classification, DST-aware
+duration, side-specific tariffs, and surcharge premium conversion. M.12 remains
+In progress until merge.
 
 ## Completed increments
 
@@ -115,8 +106,7 @@ not retroactively relabeled as CSV implementation.
 
 ## Next recommended increment
 
-M.11 — Automatic CSV download. Integrated processing remains M.12, and
-monitoring removal remains M.14.
+M.13 — Daily cumulative operation readiness. Monitoring removal remains M.14.
 
 ## Current contract
 

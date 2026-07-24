@@ -14,6 +14,7 @@ from decimal import Decimal, InvalidOperation
 from enum import Enum
 from pathlib import Path
 from typing import Iterable
+from zoneinfo import ZoneInfo
 
 
 OUTPUT_COLUMNS = (
@@ -61,6 +62,8 @@ class ValidationReason(str, Enum):
     INVALID_VALUE = "invalid_value"
     UNKNOWN_REFERENCE = "unknown_reference"
     CONFLICTING_DUPLICATE = "conflicting_duplicate"
+    PRODUCT_TYPE_UNRESOLVED = "product_type_unresolved"
+    MISSING_REQUIRED_TARIFF = "missing_required_tariff"
 
 
 def _exact_date(value: object, field: str) -> date:
@@ -199,7 +202,11 @@ class NormalizedAuctionRecord:
             None if self.auction_premium_eur_mwh_h is None
             else _decimal(self.auction_premium_eur_mwh_h, "auction_premium_eur_mwh_h")
         )
-        duration = Decimal(str((end - start).total_seconds())) / Decimal("3600")
+        local_zone = ZoneInfo("Europe/Berlin")
+        duration = Decimal(str((
+            end.replace(tzinfo=local_zone).astimezone(timezone.utc)
+            - start.replace(tzinfo=local_zone).astimezone(timezone.utc)
+        ).total_seconds())) / Decimal("3600")
         supplied_duration = _decimal(self.duration_hours, "duration_hours")
         if supplied_duration != duration.normalize():
             raise ValueError("duration_hours must equal the exact Flow Start/Flow End duration.")
