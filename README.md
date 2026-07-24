@@ -49,11 +49,13 @@ separator, and has this exact 12-column order:
 
 ## Implementation status
 
-Roadmap increments M.1 through M.9 are completed implementation. M.4-M.6 remain
+Roadmap increments M.1 through M.10 are completed implementation. M.4-M.6 remain
 the historical 11-column Excel increments; M.9 adapts their active contracts to
-the revised 12-column cumulative CSV output. M.10 owns PRISMA date filtering and
-remains blocked on authoritative Apply-action and applied-range evidence.
-Automatic download remains M.11.
+the revised 12-column cumulative CSV output. M.10 applies the validated
+`MiniDateRange` through the confirmed PRISMA selectors
+`startOfAuctionFrom`, `startOfAuctionTo`, `submit-filters`, and
+`filter-startOfAuctionFrom`, using inclusive `06:00` boundaries and exact
+`DD.MM.YYYY      HH:mm` values. Automatic download remains M.11.
 
 ## Development and tests
 

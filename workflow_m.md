@@ -149,6 +149,14 @@ When the code is ready, Codex may provide commands for the user to review, stage
 6. Background or headless execution may be used only after real PRISMA behavior is validated. If PRISMA requires a visible browser, minimize or hide it safely without weakening reliability.
 7. Never bypass authentication, access controls, anti-bot controls, or PRISMA terms.
 
+For M.10, date filtering consumes `MiniDateRange`, formats both inclusive
+calendar dates as `DD.MM.YYYY      06:00`, and uses only the confirmed
+`startOfAuctionFrom`, `startOfAuctionTo`, `submit-filters`, and
+`filter-startOfAuctionFrom` data-test IDs. It verifies exact displayed values
+and valid timezone-aware PRISMA `data-test-iso-value` attributes before Apply.
+No `filter-startOfAuctionTo`, dynamic id, CSS class, visible-text, Capacity, or
+download selector is part of this contract.
+
 ## 9. Output contract
 
 The authoritative CSV column names and ordering must be documented before implementation and covered by tests.
