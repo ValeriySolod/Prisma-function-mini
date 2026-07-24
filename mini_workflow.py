@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import csv
 import os
+import re
 import shutil
 import threading
 import tempfile
@@ -20,6 +21,7 @@ from mini_domain import (
     CapacityType,
     MIN_BOOKED_CAPACITY_KWH_H,
     MiniDateRange,
+    MiniOutputRow,
     NormalizedAuctionRecord,
     ProductType,
     SourceImportRequest,
@@ -81,6 +83,13 @@ class MiniWorkflowResult:
     filtered: int
     rejected: int
     result_path: Path
+
+
+@dataclass(frozen=True)
+class MiniRecoveryResult:
+    removed_publication_artifacts: int
+    removed_download_operations: int
+    reconciled_output: bool
 
 
 class _Rejected(ValueError):
@@ -285,6 +294,11 @@ def parse_source(
 
 
 class MiniIntegratedWorkflow:
+    _DOWNLOAD_OPERATION = re.compile(r"^[0-9a-f]{32}$")
+    _PUBLICATION_ARTIFACT = re.compile(
+        r"^\.prisma_function_mini-(?:restore-)?[^\\/]+\.csv$"
+    )
+
     def __init__(
         self,
         paths: RuntimePaths,
@@ -297,6 +311,64 @@ class MiniIntegratedWorkflow:
         self.session = session or MiniPrismaSession()
         self.storage = storage or MiniAuctionStorage(paths=paths)
         self.publisher = publisher or MiniCsvPublisher(self.storage)
+
+    def recover(self) -> MiniRecoveryResult:
+        """Remove abandoned owned artifacts and reconcile CSV from SQLite history."""
+
+        removed_publication = 0
+        result_parent = self.publisher.output_path.parent
+        if result_parent.exists():
+            for artifact in result_parent.iterdir():
+                if (
+                    artifact.is_file()
+                    and self._PUBLICATION_ARTIFACT.fullmatch(artifact.name)
+                ):
+                    try:
+                        artifact.unlink()
+                    except OSError as exc:
+                        raise MiniWorkflowError(
+                            "An abandoned publication artifact could not be cleaned up."
+                        ) from exc
+                    removed_publication += 1
+
+        removed_downloads = 0
+        temporary_root = self.paths.temporary_downloads
+        if temporary_root.exists():
+            for operation in temporary_root.iterdir():
+                if (
+                    operation.is_dir()
+                    and self._DOWNLOAD_OPERATION.fullmatch(operation.name)
+                ):
+                    try:
+                        shutil.rmtree(operation)
+                    except OSError as exc:
+                        raise MiniWorkflowError(
+                            "An abandoned download operation could not be cleaned up."
+                        ) from exc
+                    removed_downloads += 1
+
+        history = self.storage.history()
+        expected = MiniCsvPublisher._content(
+            MiniOutputRow.from_record(item.auction).values() for item in history
+        )
+        current: bytes | None
+        try:
+            current = (
+                self.publisher.output_path.read_bytes()
+                if self.publisher.output_path.exists()
+                else None
+            )
+        except OSError as exc:
+            raise MiniWorkflowError(
+                "The cumulative CSV could not be inspected during recovery."
+            ) from exc
+        reconciled = current is not None and current != expected
+        if history and current != expected:
+            self.publisher.publish()
+            reconciled = True
+        return MiniRecoveryResult(
+            removed_publication, removed_downloads, reconciled
+        )
 
     def run(
         self,
@@ -317,6 +389,11 @@ class MiniIntegratedWorkflow:
                 raise MiniWorkflowError("The operation download could not be cleaned up.") from exc
 
         try:
+            if cancel_event.is_set():
+                raise MiniWorkCancelled
+            self.recover()
+            if cancel_event.is_set():
+                raise MiniWorkCancelled
             progress(MiniUiState.DOWNLOADING, "Applying date filter and downloading CSV...")
             source = self.session.download_csv(cancel_event, request.date_range)
             if source.request.requested_range != request.date_range:

@@ -205,3 +205,22 @@ The first Mini increments should establish, in order:
 9. Windows packaging and clean-machine validation.
 
 The exact increment IDs and status are maintained only in `ROADMAP.md`.
+
+## 12. Daily and restart recovery boundary
+
+SQLite is the sole authoritative cumulative store. At the beginning of an
+integrated operation, Mini may remove only artifacts that match its documented
+publication-staging names or production UUID download-operation ownership
+boundary. It must preserve unrelated files. When SQLite history and the
+published CSV differ after an interrupted run, the CSV is regenerated
+deterministically from SQLite through the atomic publisher before new browser
+work begins.
+
+Cancellation and failures before the transactional storage/publication
+boundary leave history and audit unchanged. Publication failures roll back the
+candidate history and operation audit and preserve the last valid CSV. The
+subsequent retry is audited as a separate operation; exact repeats must report
+zero inserted rows and the truthful duplicate and source-accounting counts.
+Automated operational tests use fake browser/download boundaries and isolated
+runtime directories. Live PRISMA, packaged-runtime, installer, and clean-Windows
+proof remain separate manual validation layers.
