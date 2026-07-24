@@ -11,12 +11,14 @@ from typing import Callable, TypeVar
 
 from browser import DefaultBrowserDetector, PRISMA_AUCTIONS_URL, _ensure_subprocess_output_streams
 from mini_domain import MiniDateRange
+from mini_download import MiniDownloadError, MiniDownloadedSource, MiniPrismaCsvDownloader
 from prisma_page import (
     PrismaAuthenticationRequiredError,
     PrismaInvalidSessionError,
     PrismaSessionValidator,
 )
 from runtime_logging import LOGGER_NAME, safe_log
+from runtime_paths import runtime_paths
 
 
 class MiniBrowserFailureKind(str, Enum):
@@ -100,6 +102,7 @@ class MiniBrowserPolicy:
     filter_timeout_ms: int = 10_000
     refresh_timeout_ms: int = 20_000
     cancellation_poll_ms: int = 100
+    download_timeout_ms: int = 20_000
 
     def __post_init__(self) -> None:
         if (
@@ -108,6 +111,7 @@ class MiniBrowserPolicy:
             or self.filter_timeout_ms <= 0
             or self.refresh_timeout_ms <= 0
             or self.cancellation_poll_ms <= 0
+            or self.download_timeout_ms <= 0
         ):
             raise ValueError("Browser timeouts must be positive.")
         if self.max_attempts not in (1, 2):
@@ -354,6 +358,8 @@ class MiniPrismaSession:
                 return self._run_attempt(cancel_event, attempt, action)
             except MiniBrowserCancelledError:
                 raise
+            except MiniDownloadError:
+                raise
             except (MiniBrowserAuthenticationRequiredError, MiniBrowserLifecycleError):
                 raise
             except (MiniBrowserStartupError, MiniBrowserTimeoutError) as exc:
@@ -384,6 +390,29 @@ class MiniPrismaSession:
             cancel_event,
             lambda page, event: adapter.apply(page, requested_range, event),
         )
+
+    def download_csv(
+        self,
+        cancel_event: threading.Event,
+        requested_range: MiniDateRange,
+    ) -> MiniDownloadedSource:
+        """Apply the exact range and submit one official CSV export."""
+        date_filter = MiniPrismaDateFilter(
+            timeout_ms=self.policy.filter_timeout_ms,
+            refresh_timeout_ms=self.policy.refresh_timeout_ms,
+            poll_ms=self.policy.cancellation_poll_ms,
+        )
+        downloader = MiniPrismaCsvDownloader(
+            runtime_paths().temporary_downloads,
+            timeout_ms=self.policy.download_timeout_ms,
+            poll_ms=self.policy.cancellation_poll_ms,
+        )
+
+        def action(page, event):
+            date_filter.apply(page, requested_range, event)
+            return downloader.download(page, requested_range, event)
+
+        return self.run(cancel_event, action)
 
     def _run_attempt(self, cancel_event, attempt, action):
         playwright = None
@@ -442,7 +471,7 @@ class MiniPrismaSession:
             result = action(page, cancel_event)
             self._check_lifecycle(cancel_event, unexpectedly_closed, attempt)
             return result
-        except MiniBrowserError:
+        except (MiniBrowserError, MiniDownloadError):
             raise
         except PrismaAuthenticationRequiredError as exc:
             raise MiniBrowserAuthenticationRequiredError(

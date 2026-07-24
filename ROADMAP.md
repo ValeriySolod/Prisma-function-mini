@@ -23,13 +23,34 @@
 | M.8 | Managed PRISMA background session | ✅ Completed | Mini-owned Playwright lifecycle with an explicit headless-first policy and no unverified visible fallback. | Startup, readiness, authentication-required, timeout, closure, cancellation, one bounded transient retry, and deterministic cleanup are covered without live access; merged to `main`. |
 | M.9 | Excel-to-CSV contract adaptation | ✅ Completed | Adapt the historical M.4-M.6 11-column Excel contracts and publisher to the authoritative cumulative 12-column CSV, including Auction Premium. | UTF-8, semicolon delimiter, dot decimal separator, exact 12-column order, authoritative blank-preserving mapping, cumulative atomic publication, and regression tests pass. |
 | M.10 | Automated PRISMA date filtering | ✅ Completed | Mini applies only the selected `Start of Auction` date range; PRISMA Capacity automation is prohibited. | Confirmed stable DOM selectors drive exact date entry and Apply; interpreted timestamps, applied state, refresh, typed failures, cancellation, duplicate submission, bounded retry compatibility, and cleanup have deterministic adapter tests. |
-| M.11 | Automatic CSV download | ⬜ Planned | Verified download to an application-controlled temporary location. | Missing, partial, empty, wrong-contract, cancellation, timeout, and retry scenarios are covered; requested range is audited. |
+| M.11 | Automatic CSV download | 🟡 In progress | Verified download to an application-controlled temporary location. | Missing, partial, empty, wrong-contract, cancellation, timeout, and retry scenarios are covered; requested range is audited. |
 | M.12 | Integrated transformation workflow | ⬜ Planned | Download, validation, normalization, authoritative enrichment, storage, audit, and CSV publication operate as one workflow. | Every row is accounted for; failure is atomic; exact retry is unchanged; integrated tests pass. |
 | M.13 | Daily cumulative operation readiness | ⬜ Planned | User workflow supports safe daily updates and overlapping ranges. | Multiple-day and repeated-run scenarios preserve history without duplicates; restart recovery is validated. |
 | M.14 | Remove excluded monitoring functionality | ⬜ Planned | Monitoring UI, scheduler, status checks, notifications, and monitoring-only persistence are removed from the Mini product path. | Import/browser/shared utilities remain green; no monitoring controls or background monitoring processes remain. |
 | M.15 | Windows package and installer | ⬜ Planned | Mini-specific PyInstaller onedir package and per-user installer. | Structural validation passes; runtime data stays in the Mini user-data directory; no Python installation is required. |
 | M.16 | Real PRISMA and clean-Windows validation | ⬜ Planned | Recorded end-to-end validation on a standard non-administrator Windows computer. | Background session, download, data-bearing transform, cumulative CSV output, retry, overlap, restart, shutdown, installer, and uninstaller checks pass. |
 | M.17 | Release readiness | ⬜ Planned | Versioned release archive, checksum, release notes, and final checklist. | Automated and required manual checks are recorded as passed; publication requires explicit approval. |
+
+## In-progress increments
+
+### M.11 — Automatic CSV download
+
+M.11 adds a typed download adapter after successful M.10 date application. It
+submits the confirmed main CSV action outside the open dialog, uses Playwright
+download events, accepts only the official `Auction_overview.csv` filename, and
+stages each operation below the Mini-owned `temporary-downloads` directory.
+Acceptance requires a completed, non-empty, stable SHA-256 file matching the
+existing authoritative PRISMA export contract. Immutable metadata binds the
+source name, digest, size, and exact `MiniDateRange` for the later M.12 audit
+boundary.
+
+The confirmed limit dialog is parsed only through its exact container, warning
+text, and inner `MonolithDownload` CSV action. When the advertised total exceeds
+the downloadable count, the result fails closed and its owned files are
+removed. Changed DOM, missing or timed-out downloads, cancellation, page
+closure, partial files, collisions, filesystem errors, and cleanup failures are
+typed. An uncertain post-click failure cannot cause duplicate export
+submission. M.11 remains In progress until merge; M.12 integration is excluded.
 
 ## Completed increments
 
@@ -111,8 +132,10 @@ Capacity automation remains prohibited. The marketed-capacity threshold of at
 least 1000 kWh/h may be applied locally only after the CSV field and semantics
 are verified.
 
-CSV-download evidence remains M.11. Live PRISMA interaction and
-headless/background behavior remain unvalidated.
+The M.11 automatic-download boundary is implemented with deterministic fake
+Playwright and filesystem tests. Live PRISMA interaction, the confirmed
+selectors in the current production DOM, and headless/background behavior
+remain unvalidated.
 
 ## Maintenance rules
 

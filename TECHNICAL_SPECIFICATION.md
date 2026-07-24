@@ -113,6 +113,24 @@ duplicate submission.
 - Mini must reject missing, empty, partial, unexpected, or unsupported files.
 - Temporary source files must not become the historical source of truth after successful processing.
 
+For M.11, the main CSV action is resolved outside
+`[role="dialog"][data-dialog][data-open="true"]`, and download completion is
+observed through Playwright events. The only accepted suggested filename is
+`Auction_overview.csv`. Each operation owns a collision-safe staging directory
+below `%LOCALAPPDATA%\PrismaFunctionMini\temporary-downloads`; unrelated files
+are never cleaned. An accepted source must exist, be non-empty, have stable
+SHA-256 and size metadata, and match the canonical PRISMA export contract.
+Immutable metadata binds it to the exact requested `MiniDateRange`.
+
+The confirmed limit warning has the form
+`Your download contains only <downloaded> of <total> items.`. Its download
+action is the `MonolithDownload` button containing
+`svg[data-icon="file-csv"]` inside the open dialog. Missing or malformed
+warning state fails as changed DOM. If `total` exceeds `downloaded`, Mini
+rejects the file as limited, removes only its owned artifacts, and does not
+expose it to M.12 persistence or publication. One adapter submits the main
+export action at most once, including after an uncertain post-click failure.
+
 ### FR-004 — Source validation and transformation
 
 - Every source row must be classified as processed, duplicate, filtered, or rejected.
